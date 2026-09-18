@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameVerse - คลังมินิเกมฝึกทักษะสุดมันส์</title>
+    <!-- Google Fonts (Kanit) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ==========================================
+           1. CSS RESET & GLOBAL STYLES (Dark Theme)
+           ========================================== */
+        :root {
+            --bg-color: #0d0f17;
+            --surface-color: #161926;
+            --card-bg: #1e2235;
+            --card-hover: #262b42;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent: #06b6d4;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --glow-shadow: 0 0 25px rgba(99, 102, 241, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Kanit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* ==========================================
+           2. NAVBAR SECTION
+           ========================================== */
+        .navbar {
+            background: rgba(22, 25, 38, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a855f7, #6366f1, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 1.2rem;
+            border-radius: 50px;
+            border: 1px solid var(--border-color);
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .user-profile:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+        }
+
+        /* ==========================================
+           3. HERO BANNER SECTION
+           ========================================== */
+        .hero {
+            position: relative;
+            background: radial-gradient(circle at top center, rgba(99, 102, 241, 0.18) 0%, transparent 70%);
+            padding: 4rem 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .hero-title {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            max-width: 650px;
+            margin: 0 auto;
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        /* ==========================================
+           4. GAME GRID (แถวละ 3 เกม) & CARDS
+           ========================================== */
+        .main-container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem;
+            width: 100%;
+            flex: 1;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 5px;
+            height: 26px;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 2rem;
+        }
+
+        .game-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            background-color: var(--card-hover);
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: var(--glow-shadow);
+        }
+
+.card-thumb {
+    width: 100%;
+    height: 240px;
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    color: var(--text-muted);
+}
+
+.card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.card-thumb svg {
+    width: 72px;
+    height: 72px;
+    fill: rgba(255, 255, 255, 0.25);
+    margin-bottom: 0.8rem;
+}
+
+.card-thumb-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.6);
+}
+        .card-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(6px);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+
+        .card-body {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .btn-play {
+            width: 100%;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-play:hover {
+            opacity: 0.95;
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        /* ==========================================
+           5. MODAL & IFRAME POP-UP
+           ========================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 1rem;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-container {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 1000px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.active .modal-container {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-main);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-close:hover {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .modal-body {
+            flex: 1;
+            background: #000;
+            position: relative;
+        }
+
+        .modal-body iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* ==========================================
+           6. RESPONSIVE DESIGN
+           ========================================== */
+        @media (max-width: 992px) {
+            .game-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .navbar { padding: 0.8rem 1rem; }
+            .hero-title { font-size: 2rem; }
+            .hero-subtitle { font-size: 0.95rem; }
+            .game-grid {
+                grid-template-columns: 1fr;
+            }
+            .card-thumb { height: 200px; }
+            .modal-container { height: 90vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <header class="navbar">
+        <div class="logo">🎮 GameVerse</div>
+        <div class="user-profile">
+            👤 <span>ผู้เล่น / Student</span>
+        </div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+        <h1 class="hero-title">คลังมินิเกมฝึกทักษะสุดมันส์</h1>
+        <p class="hero-subtitle">เลือกเกมที่ชอบ ลุยภารกิจสุดท้าทาย แล้วเพลิดเพลินไปกับการเรียนรู้ไร้ขีดจำกัด!<br>นายณัฐชนน เพียรสวัสดิ์</p>
+    </section>
+
+    <!-- MAIN CONTENT: GAME CARDS -->
+    <main class="main-container">
+        <div class="section-header">
+            <h2 class="section-title">รายการเกมทั้งหมด</h2>
+        </div>
+
+        <div class="game-grid" id="gameGrid">
+            <!-- Game Cards generated dynamically -->
+        </div>
+    </main>
+
+    <!-- GAME MODAL (POP-UP) -->
+    <div class="modal-overlay" id="gameModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title" id="modalGameTitle">🎮 กำลังโหลดเกม...</div>
+                <button class="btn-close" id="closeModalBtn" title="ปิดหน้าต่าง">&times;</button>
+            </div>
+            <div class="modal-body">
+                <iframe id="gameIframe" src="" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+<!-- JAVASCRIPT -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const gameGrid = document.getElementById('gameGrid');
+        const gameModal = document.getElementById('gameModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const gameIframe = document.getElementById('gameIframe');
+        const modalGameTitle = document.getElementById('modalGameTitle');
+
+        // 1. ข้อมูลรายการเกมทั้งหมด
+        const gamesData = [
+            {
+                id: 1,
+                title: "เกมจับคู่ธาตุ เคมี",
+                description: "ทดสอบความรู้และฝึกทักษะการจำสัญลักษณ์ธาตุเคมีสุดสนุก",
+                path: "games/game1.html",
+                image: "games/game1.png"
+				},
+			{
+				id: 2,
+				title: "Mix It!",
+				description: "เกมแนวผสมสารเคมี ทดลองผสมธาตุและสารต่างๆ ให้ได้ผลลัพธ์และค่า pH ตามเป้าหมาย",
+				path: "games/game2.html",
+				image: "games/game2.png"
+				},
+			{
+				id: 3,
+				title: "NUMBER DETECTIVE",
+				description: "ตามหาตัวเลขที่หายไป",
+				path: "games/game3.html",
+				image: "games/game3.png"
+				},
+			{
+				id: 4,
+				title: "Memory Lab",
+				description: "จับคู่การ์ดให้ถูกต้อง",
+				path: "games/game4.html",
+				image: "games/game4.png"
+				},
+			{
+				id: 5,
+				title: "Equation Escape",
+				description: "แก้สมการ เพื่อหนีออกจากห้อง!!",
+				path: "games/game5.html",
+				image: "games/game5.png"
+				},
+			{
+				id: 6,
+				title: "TEMPERATURE RUSH",
+				description: "บอกอุณหภูมิให้ถูกต้อง",
+				path: "games/game6.html",
+				image: "games/game6.png"
+				},
+			{
+				id: 7,
+				title: "Physics Balance",
+				description: "ผู้เล่นต้องทายว่าคานจะเอียงไปด้านไหน",
+				path: "games/game7.html",
+				image: "games/game7.png"
+				},
+			{
+				id: 8,
+				title: "MATH SHOP",
+				description: "คิดราคาสินค้าให้ถูกต้อง",
+				path: "games/game8.html",
+				image: "games/game8.png"
+				},
+			{
+				id: 9,
+				title: "DNA Match",
+				description: "ผู้เล่นต้องจับคู่เบสของ DNA",
+				path: "games/game9.html",
+				image: "games/game9.png"
+				},
+			{
+				id: 10,
+				title: "Planet Sort",
+				description: "จัดดาวเคราะห์!",
+				path: "games/game10.html",
+				image: "games/game10.png"
+				},
+			{
+				id: 11,
+				title: "Logic Lock",
+				description: "ผู้เล่นต้องเปิดกล่องนิรภัยด้วยรหัส 3 หลัก",
+				path: "games/game11.html",
+				image: "games/game11.png"
+				},
+			{
+				id: 12,
+				title: "ENERGY MANAGER",
+				description: "ผู้เล่นมีพลังงานจำกัดต้องเปิดเครื่องใช้ไฟฟ้าเพื่อทำภารกิจ",
+				path: "games/game12.html",
+				image: "games/game12.png"
+				},
+			{
+				id: 13,
+				title: "MEMORY CODE",
+				description: "เกมฝึกความจำและ Logic Programming",
+				path: "games/game13.html",
+				image: "games/game13.png"
+				},
+			{
+				id: 14,
+				title: "VOLCANO MIX",
+				description: "เกมทดลองเคมีแบบง่าย ๆ",
+				path: "games/game14.html",
+				image: "games/game14.png"
+				},
+			{
+				id: 15,
+				title: "MATH RACER",
+				description: "เกมแข่งรถแบบ 2D ที่ผู้เล่นต้องตอบโจทย์คณิตศาสตร์เพื่อเพิ่มความเร็วรถ",
+				path: "games/game15.html",
+				image: "games/game15.png"
+				},
+        ];
+
+        // 2. ฟังก์ชันแสดงผลการ์ดเกม
+        function renderGameCards() {
+            gameGrid.innerHTML = gamesData.map(game => `
+                <div class="game-card">
+                    <div class="card-thumb">
+                        <span class="card-badge">SLOT ${game.id}</span>
+                        ${game.image ? `
+                            <img src="${game.image}" alt="${game.title}">
+                        ` : `
+                            <svg viewBox="0 0 24 24">
+                                <path d="M21,6H3C1.9,6,1,6.9,1,8v8c0,1.1,0.9,2,2,2h18c1.1,0,2-0.9,2-2V8C23,6.9,22.1,6,21,6z M11,13H9v2H8v-2H6v-1h2v-2h1v2h2 V13z M15.5,15c-0.83,0-1.5-0.67-1.5-1.5s0.67-1.5,1.5-1.5s1.5,0.67,1.5,1.5S16.33,15,15.5,15z M18.5,12c-0.83,0-1.5-0.67-1.5-1.5 S17.67,9,18.5,9s1.5,0.67,1.5,1.5S19.33,12,18.5,12z"/>
+                            </svg>
+                            <span class="card-thumb-text">Game ${game.id}</span>
+                        `}
+                    </div>
+                    <div class="card-body">
+                        <h3 class="card-title">${game.title}</h3>
+                        <p class="card-desc">${game.description}</p>
+                        <button class="btn-play" onclick="openGameModal(${game.id}, '${game.title}', '${game.path}')">
+                            ▶ เล่นเลย
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 3. ระบบ Modal สำหรับเล่นเกม
+        window.openGameModal = (id, title, path) => {
+            modalGameTitle.textContent = `🎮 ${title}`;
+            gameIframe.src = path;
+            gameModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+        function closeModal() {
+            gameModal.classList.remove('active');
+            gameIframe.src = '';
+            document.body.style.overflow = '';
+        }
+
+        closeModalBtn.addEventListener('click', closeModal);
+        gameModal.addEventListener('click', (e) => {
+            if (e.target === gameModal) closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && gameModal.classList.contains('active')) closeModal();
+        });
+
+        renderGameCards();
+    });
+</script>
+</body>
+</html>
