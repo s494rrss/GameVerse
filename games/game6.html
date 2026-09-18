@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Temperature Rush - เกมวัดอุณหภูมิความเร็วสูง</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Prompt:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Prompt', 'Fredoka', sans-serif;
+            background-color: #0b1329;
+            color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            overflow: hidden;
+            min-height: 100vh;
+        }
+
+        /* Glassmorphism card styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Dynamic background gradients for Cold / Hot theme */
+        .bg-cold-theme {
+            background: radial-gradient(circle at 50% 30%, #0369a1 0%, #0f172a 75%, #020617 100%);
+        }
+
+        .bg-hot-theme {
+            background: radial-gradient(circle at 50% 30%, #c2410c 0%, #0f172a 75%, #020617 100%);
+        }
+
+        .bg-neutral-theme {
+            background: radial-gradient(circle at 50% 30%, #1e1b4b 0%, #0f172a 75%, #020617 100%);
+        }
+
+        /* Button spring interactions */
+        .arcade-btn {
+            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 0 rgba(0, 0, 0, 0.35);
+        }
+
+        .arcade-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+        }
+
+        /* Pulse and shake animations */
+        @keyframes correctPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes wrongShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-12px); }
+            40% { transform: translateX(12px); }
+            60% { transform: translateX(-8px); }
+            80% { transform: translateX(8px); }
+        }
+
+        .animate-correct {
+            animation: correctPulse 0.25s ease-out;
+        }
+
+        .animate-wrong {
+            animation: wrongShake 0.35s ease-in-out;
+        }
+
+        /* Floating background particles */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            animation: floatUp 3s linear infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+            50% { opacity: 0.7; }
+            100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+        }
+
+        /* Thermometer visual bar */
+        .thermo-bar {
+            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body id="gameBody" class="bg-neutral-theme min-h-screen flex flex-col justify-between relative transition-all duration-500 overflow-hidden select-none">
+
+    <div id="particleContainer" class="absolute inset-0 overflow-hidden pointer-events-none z-0"></div>
+
+    <header class="w-full max-w-2xl mx-auto p-3 sm:p-4 relative z-10">
+        <div class="glass-panel rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 shadow-xl border-cyan-500/20">
+            
+            <!-- Game Title & Thermometer Icon -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-cyan-400 via-amber-400 to-rose-500 p-0.5 shadow-lg flex items-center justify-center">
+                    <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-cyan-400">
+                        <i class="fa-solid fa-temperature-half text-xl"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-amber-300 to-rose-400 font-fredoka">
+                        TEMPERATURE RUSH
+                    </h1>
+                    <p class="text-[10px] sm:text-xs text-slate-400 font-medium">เกมวัดอุณหภูมิสปีดแมตช์</p>
+                </div>
+            </div>
+
+            <!-- Score, Combo & Timer Display -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Combo Counter -->
+                <div class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center min-w-[55px]">
+                    <div class="text-[9px] text-slate-400 uppercase font-bold tracking-wider">COMBO</div>
+                    <div id="lblCombo" class="text-xs sm:text-sm font-black text-amber-400 font-fredoka">x1</div>
+                </div>
+
+                <!-- Timer Counter -->
+                <div class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center min-w-[65px] relative">
+                    <div class="text-[9px] text-slate-400 uppercase font-bold tracking-wider">เวลา</div>
+                    <div id="lblTimer" class="text-sm sm:text-base font-black text-cyan-300 font-fredoka">60s</div>
+                </div>
+
+                <!-- Score Counter -->
+                <div class="px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl bg-slate-900/90 border border-emerald-500/30 text-center min-w-[70px]">
+                    <div class="text-[9px] text-slate-400 uppercase font-bold tracking-wider">คะแนน</div>
+                    <div id="lblScore" class="text-base sm:text-lg font-black text-emerald-400 font-fredoka">0</div>
+                </div>
+
+                <!-- Mute Toggle -->
+                <button id="btnSound" onclick="toggleSound()" class="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 transition cursor-pointer">
+                    <i id="iconSound" class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Timer Bar Progress -->
+        <div class="w-full h-2 bg-slate-900/80 rounded-full mt-2 overflow-hidden p-0.5 border border-slate-800">
+            <div id="timerBar" class="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-rose-500 rounded-full transition-all duration-200" style="width: 100%;"></div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-2xl mx-auto px-4 py-2 flex-1 flex flex-col items-center justify-center relative z-10">
+
+        <!-- COMBO ANNOUNCER BANNER -->
+        <div id="comboBanner" class="opacity-0 transition-opacity duration-200 text-amber-300 font-black text-sm sm:text-base tracking-widest font-fredoka flex items-center gap-1.5 mb-1">
+            <i class="fa-solid fa-bolt text-yellow-400 animate-bounce"></i> <span id="comboText">COMBO X3! +BONUS</span>
+        </div>
+
+        <!-- QUESTION CARD VIEWPORT -->
+        <div id="questionCard" class="w-full glass-panel rounded-3xl p-6 sm:p-8 text-center border-2 border-cyan-500/30 shadow-2xl relative overflow-hidden transition-all duration-300">
+            
+            <!-- Category Tag -->
+            <div id="questionCategory" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700 text-xs sm:text-sm font-semibold text-cyan-300 mb-4">
+                <i class="fa-solid fa-question-circle"></i> อุณหภูมินี้หนาวหรือร้อน?
+            </div>
+
+            <!-- MAIN TEMPERATURE DISPLAY -->
+            <div id="tempContainer" class="flex items-center justify-center gap-4 my-2 sm:my-4 min-h-[110px]">
+                <!-- Dynamic Content Rendered via JS -->
+            </div>
+
+            <!-- Hint / Subtitle -->
+            <p id="questionHint" class="text-xs sm:text-sm text-slate-300 font-medium mt-2">
+                เลือกคำตอบที่ถูกต้องให้เร็วที่สุด!
+            </p>
+        </div>
+
+        <!-- CONTROLS & ANSWER BUTTONS PANEL -->
+        <div class="w-full max-w-xl mt-6">
+            <div id="answerGrid" class="grid grid-cols-2 gap-4 sm:gap-6">
+                <!-- Dynamic Answer Buttons rendered here -->
+            </div>
+            
+            <div class="text-center mt-3 text-slate-500 text-[11px] font-medium hidden sm:block">
+                <i class="fa-solid fa-keyboard mr-1"></i> ใช้ปุ่มคีย์บอร์ด <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">→</kbd> หรือ <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">A</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">D</kbd> ในการตอบ
+            </div>
+        </div>
+
+    </main>
+
+    <div id="modalStart" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-cyan-500/50 text-center relative overflow-hidden shadow-2xl">
+            
+            <!-- Logo Badge -->
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-cyan-400 via-amber-400 to-rose-500 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-4xl text-cyan-400">
+                    <i class="fa-solid fa-temperature-arrow-up"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-amber-300 to-rose-400 font-fredoka mb-2">
+                TEMPERATURE RUSH
+            </h2>
+            
+            <p class="text-sm text-slate-300 leading-relaxed mb-6 bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                ทดสอบความไวสมองและสัมผัสความเร็ว! ตัดสินใจว่าอุณหภูมินี้ <b class="text-cyan-300">หนาว (COLD)</b> หรือ <b class="text-rose-400">ร้อน (HOT)</b> และเปรียบเทียบค่าอุณหภูมิ <b class="text-amber-300">&lt; / &gt;</b> ให้ได้มากที่สุดภายใน 60 วินาที
+            </p>
+
+            <div class="space-y-2 text-xs text-slate-400 text-left mb-6 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 font-medium">
+                <div class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-emerald-400"></i> ตอบถูก: +10 คะแนน + โบนัสสปีดคอมโบ</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-times-circle text-rose-400"></i> ตอบผิด: -3 คะแนน และรีเซ็ตคอมโบ</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-stopwatch text-amber-400"></i> ระยะเวลาแข่ง: 60 วินาที</div>
+            </div>
+
+            <button onclick="startGame()" class="arcade-btn w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-amber-400 to-rose-500 hover:from-cyan-400 hover:to-rose-400 text-slate-950 font-black text-lg shadow-lg cursor-pointer font-fredoka tracking-wider">
+                เริ่มท้าทายสปีด <i class="fa-solid fa-play ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="modalGameOver" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-amber-500/50 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-400 via-yellow-300 to-rose-500 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-4xl text-amber-400">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+            </div>
+
+            <h3 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-amber-300 to-rose-400 font-fredoka mb-1">
+                หมดเวลา!
+            </h3>
+            <p class="text-xs sm:text-sm text-slate-400 font-medium mb-5">
+                สรุปผลการแข่งขันสปีดอุณหภูมิของคุณ
+            </p>
+
+            <!-- Star Rating -->
+            <div class="flex justify-center gap-2 text-3xl text-amber-400 mb-6">
+                <i id="star1" class="fa-solid fa-star"></i>
+                <i id="star2" class="fa-solid fa-star"></i>
+                <i id="star3" class="fa-solid fa-star"></i>
+            </div>
+
+            <!-- Stats Summary Grid -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-900/90 rounded-2xl p-4 border border-slate-800 mb-6 text-center font-fredoka">
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">คะแนนรวม</div>
+                    <div id="goScore" class="text-lg sm:text-xl font-black text-emerald-400">0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">คอมโบสูงสุด</div>
+                    <div id="goMaxCombo" class="text-lg sm:text-xl font-black text-amber-400">x1</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">ความแม่นยำ</div>
+                    <div id="goAccuracy" class="text-lg sm:text-xl font-black text-cyan-300">0%</div>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="arcade-btn w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-amber-400 to-rose-500 hover:from-cyan-400 hover:to-rose-400 text-slate-950 font-black text-lg shadow-lg cursor-pointer font-fredoka tracking-wider">
+                <i class="fa-solid fa-rotate-right mr-1"></i> เล่นใหม่อีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <footer class="w-full max-w-2xl mx-auto p-3 text-center text-[11px] text-slate-500 z-10 font-medium">
+        Temperature Rush &copy; 2026 - เกมคณิตศาสตร์และวิทยาศาสตร์วัดอุณหภูมิสปีดอาร์เคด
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. WEB AUDIO SYNTHESIZER ENGINE (Pure Web Audio API)
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playColdSound() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.12);
+            }
+
+            playHotSound() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.linearRampToValueAtTime(440, now + 0.15);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playWrongSound() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(90, now + 0.2);
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            playComboSound(comboLevel) {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const baseFreq = 523.25 + (comboLevel * 60);
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(baseFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.18);
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.18);
+            }
+
+            playGameOverSound() {
+                if (this.muted) return;
+                this.init();
+                const notes = [440, 392, 349.23, 293.66];
+                let delay = 0;
+                notes.forEach(freq => {
+                    const now = this.ctx.currentTime + delay;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                    delay += 0.12;
+                });
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        /* ==========================================================================
+           2. GAME ENGINE STATE & LOGIC
+           ========================================================================== */
+        let score = 0;
+        let combo = 1;
+        let maxCombo = 1;
+        let timerSeconds = 60;
+        let timerInterval = null;
+        let currentQuestion = null;
+        let totalQuestions = 0;
+        let correctQuestions = 0;
+        let isGameActive = false;
+
+        // Threshold for COLD vs HOT: < 18°C is Cold, >= 18°C is Hot
+        const HOT_THRESHOLD = 18;
+
+        function initParticles() {
+            const container = document.getElementById('particleContainer');
+            container.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div');
+                const isCold = Math.random() > 0.5;
+                p.className = 'particle';
+                p.style.width = `${Math.random() * 8 + 4}px`;
+                p.style.height = p.style.width;
+                p.style.backgroundColor = isCold ? '#38bdf8' : '#fb923c';
+                p.style.left = `${Math.random() * 100}%`;
+                p.style.animationDuration = `${Math.random() * 4 + 3}s`;
+                p.style.animationDelay = `${Math.random() * 2}s`;
+                container.appendChild(p);
+            }
+        }
+
+        function toggleSound() {
+            audio.muted = !audio.muted;
+            const icon = document.getElementById('iconSound');
+            icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high text-cyan-400';
+        }
+
+        function startGame() {
+            score = 0;
+            combo = 1;
+            maxCombo = 1;
+            timerSeconds = 60;
+            totalQuestions = 0;
+            correctQuestions = 0;
+            isGameActive = true;
+
+            document.getElementById('lblScore').innerText = '0';
+            document.getElementById('lblCombo').innerText = 'x1';
+            document.getElementById('lblTimer').innerText = '60s';
+            document.getElementById('timerBar').style.width = '100%';
+
+            document.getElementById('modalStart').classList.add('hidden');
+            document.getElementById('modalGameOver').classList.add('hidden');
+
+            initParticles();
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                document.getElementById('lblTimer').innerText = `${timerSeconds}s`;
+                const percent = (timerSeconds / 60) * 100;
+                document.getElementById('timerBar').style.width = `${percent}%`;
+
+                if (timerSeconds <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            nextQuestion();
+        }
+
+        function generateQuestion() {
+            // Decide Question Mode: 0 = Judgement (Hot/Cold), 1 = Comparison (< or >)
+            const mode = Math.random() > 0.45 ? 'JUDGMENT' : 'COMPARISON';
+
+            if (mode === 'JUDGMENT') {
+                // Generate temperature between -30°C and 45°C
+                const temp = Math.floor(Math.random() * 76) - 30;
+                const isHot = temp >= HOT_THRESHOLD;
+                const answer = isHot ? 'HOT' : 'COLD';
+
+                return {
+                    mode: 'JUDGMENT',
+                    temp: temp,
+                    correctAnswer: answer,
+                    categoryText: 'อุณหภูมินี้หนาวหรือร้อน?',
+                    hintText: 'เลือก COLD (หนาว) หรือ HOT (ร้อน)'
+                };
+            } else {
+                // Generate two distinct temperatures
+                let tempA = Math.floor(Math.random() * 60) - 25;
+                let tempB = Math.floor(Math.random() * 60) - 25;
+                while (tempA === tempB) {
+                    tempB = Math.floor(Math.random() * 60) - 25;
+                }
+
+                const correctAnswer = tempA < tempB ? '<' : '>';
+
+                return {
+                    mode: 'COMPARISON',
+                    tempA: tempA,
+                    tempB: tempB,
+                    correctAnswer: correctAnswer,
+                    categoryText: 'เปรียบเทียบค่าอุณหภูมิ',
+                    hintText: 'เลือกเครื่องหมาย < (น้อยกว่า) หรือ > (มากกว่า)'
+                };
+            }
+        }
+
+        function nextQuestion() {
+            currentQuestion = generateQuestion();
+            const card = document.getElementById('questionCard');
+            const body = document.getElementById('gameBody');
+            const tempContainer = document.getElementById('tempContainer');
+            const categoryElem = document.getElementById('questionCategory');
+            const hintElem = document.getElementById('questionHint');
+            const grid = document.getElementById('answerGrid');
+
+            categoryElem.innerHTML = `<i class="fa-solid fa-bolt text-amber-400 mr-1"></i> ${currentQuestion.categoryText}`;
+            hintElem.innerText = currentQuestion.hintText;
+
+            if (currentQuestion.mode === 'JUDGMENT') {
+                const t = currentQuestion.temp;
+                const isSubZero = t < 0;
+                const isHot = t >= HOT_THRESHOLD;
+
+                // Dynamic background themes based on temp
+                if (isSubZero) {
+                    body.className = "bg-cold-theme min-h-screen flex flex-col justify-between relative transition-all duration-500 overflow-hidden select-none";
+                } else if (isHot) {
+                    body.className = "bg-hot-theme min-h-screen flex flex-col justify-between relative transition-all duration-500 overflow-hidden select-none";
+                } else {
+                    body.className = "bg-neutral-theme min-h-screen flex flex-col justify-between relative transition-all duration-500 overflow-hidden select-none";
+                }
+
+                tempContainer.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid ${t < 18 ? 'fa-snowflake text-cyan-400 animate-spin-slow' : 'fa-fire text-rose-500 animate-pulse'} text-4xl sm:text-5xl"></i>
+                        <span class="text-5xl sm:text-7xl font-black font-fredoka tracking-wider ${t < 18 ? 'text-cyan-300' : 'text-rose-400'}">${t}°C</span>
+                    </div>
+                `;
+
+                // Render COLD / HOT Buttons
+                grid.innerHTML = `
+                    <button onclick="handleAnswer('COLD')" class="arcade-btn py-5 sm:py-6 px-4 rounded-2xl bg-gradient-to-r from-sky-600 to-cyan-500 hover:from-sky-500 hover:to-cyan-400 text-white font-black text-xl sm:text-2xl flex items-center justify-center gap-2 cursor-pointer font-fredoka border-2 border-cyan-300/40">
+                        <i class="fa-solid fa-snowflake"></i> COLD (หนาว)
+                    </button>
+                    <button onclick="handleAnswer('HOT')" class="arcade-btn py-5 sm:py-6 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-black text-xl sm:text-2xl flex items-center justify-center gap-2 cursor-pointer font-fredoka border-2 border-rose-300/40">
+                        <i class="fa-solid fa-fire"></i> HOT (ร้อน)
+                    </button>
+                `;
+            } else {
+                body.className = "bg-neutral-theme min-h-screen flex flex-col justify-between relative transition-all duration-500 overflow-hidden select-none";
+
+                tempContainer.innerHTML = `
+                    <div class="flex items-center gap-2 sm:gap-4 font-black font-fredoka text-3xl sm:text-5xl">
+                        <span class="px-4 py-2 rounded-2xl bg-slate-900/90 border border-slate-700 ${currentQuestion.tempA < 0 ? 'text-cyan-300' : 'text-amber-300'}">${currentQuestion.tempA}°C</span>
+                        <span class="text-slate-400 text-2xl sm:text-4xl">?</span>
+                        <span class="px-4 py-2 rounded-2xl bg-slate-900/90 border border-slate-700 ${currentQuestion.tempB < 0 ? 'text-cyan-300' : 'text-amber-300'}">${currentQuestion.tempB}°C</span>
+                    </div>
+                `;
+
+                // Render < and > Inequality Buttons
+                grid.innerHTML = `
+                    <button onclick="handleAnswer('<')" class="arcade-btn py-5 sm:py-6 px-4 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-3xl sm:text-4xl flex items-center justify-center cursor-pointer font-fredoka border-2 border-cyan-400/40">
+                        &lt;
+                    </button>
+                    <button onclick="handleAnswer('>')" class="arcade-btn py-5 sm:py-6 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-3xl sm:text-4xl flex items-center justify-center cursor-pointer font-fredoka border-2 border-amber-400/40">
+                        &gt;
+                    </button>
+                `;
+            }
+        }
+
+        function handleAnswer(userChoice) {
+            if (!isGameActive) return;
+
+            totalQuestions++;
+            const card = document.getElementById('questionCard');
+
+            if (userChoice === currentQuestion.correctAnswer) {
+                // CORRECT ANSWER
+                correctQuestions++;
+                score += 10 * combo;
+
+                if (userChoice === 'COLD' || userChoice === '<') {
+                    audio.playColdSound();
+                } else {
+                    audio.playHotSound();
+                }
+
+                // Increase Combo
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+
+                // Animate Correct Answer
+                card.classList.remove('animate-correct', 'animate-wrong');
+                void card.offsetWidth; // Force Reflow
+                card.classList.add('animate-correct');
+
+                // Show Combo Banner
+                if (combo >= 2) {
+                    const comboBanner = document.getElementById('comboBanner');
+                    document.getElementById('comboText').innerText = `SUPER COMBO X${combo}! +${10 * combo} PTS`;
+                    comboBanner.classList.remove('opacity-0');
+                    audio.playComboSound(combo);
+                }
+
+            } else {
+                // INCORRECT ANSWER
+                audio.playWrongSound();
+                score = Math.max(0, score - 3);
+                combo = 1; // Reset Combo Streak
+
+                // Hide Combo Banner
+                document.getElementById('comboBanner').classList.add('opacity-0');
+
+                // Animate Wrong Shake Effect
+                card.classList.remove('animate-correct', 'animate-wrong');
+                void card.offsetWidth; // Force Reflow
+                card.classList.add('animate-wrong');
+            }
+
+            // Update HUD
+            document.getElementById('lblScore').innerText = score;
+            document.getElementById('lblCombo').innerText = `x${combo}`;
+
+            // Load Next Question Immediately
+            nextQuestion();
+        }
+
+        function endGame() {
+            isGameActive = false;
+            clearInterval(timerInterval);
+            audio.playGameOverSound();
+
+            const accuracy = totalQuestions > 0 ? Math.round((correctQuestions / totalQuestions) * 100) : 0;
+
+            document.getElementById('goScore').innerText = score;
+            document.getElementById('goMaxCombo').innerText = `x${maxCombo}`;
+            document.getElementById('goAccuracy').innerText = `${accuracy}%`;
+
+            // Calculate Star Ranking
+            const s1 = document.getElementById('star1');
+            const s2 = document.getElementById('star2');
+            const s3 = document.getElementById('star3');
+
+            s1.className = score >= 50 ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-600';
+            s2.className = score >= 120 && accuracy >= 70 ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-600';
+            s3.className = score >= 200 && accuracy >= 85 ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-600';
+
+            document.getElementById('modalGameOver').classList.remove('hidden');
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isGameActive || !currentQuestion) return;
+
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                const choice = currentQuestion.mode === 'JUDGMENT' ? 'COLD' : '<';
+                handleAnswer(choice);
+            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                const choice = currentQuestion.mode === 'JUDGMENT' ? 'HOT' : '>';
+                handleAnswer(choice);
+            }
+        });
+
+        // Initialize particles on load
+        window.addEventListener('load', () => {
+            initParticles();
+        });
+    </script>
+</body>
+</html>

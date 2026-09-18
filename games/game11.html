@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Logic Lock - เกมถอดรหัสเซฟลอจิก</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Orbitron & Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Orbitron:wght@600;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Prompt', 'Chakra Petch', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            min-height: 100vh;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+
+        .font-tech {
+            font-family: 'Chakra Petch', sans-serif;
+        }
+
+        /* Metallic Glassmorphism Panel */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Vault Wheel Spinning Effect */
+        .vault-handle {
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .vault-handle.spinning {
+            transform: rotate(360deg);
+        }
+
+        /* LED Display Numbers */
+        .led-digit {
+            background: #020617;
+            border: 2px solid #1e293b;
+            color: #38bdf8;
+            text-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.9);
+            font-family: 'Orbitron', monospace;
+        }
+
+        .led-digit.active {
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4), inset 0 0 15px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Safe Door Unlock Animation */
+        .vault-door {
+            transition: transform 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55), filter 0.8s ease;
+            transform-origin: left center;
+        }
+
+        .vault-door.open {
+            transform: rotateY(-105deg);
+            filter: brightness(1.3);
+        }
+
+        /* Keypad Button */
+        .btn-key {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+            transition: all 0.15s ease;
+        }
+
+        .btn-key:active:not(:disabled) {
+            transform: translateY(2px) scale(0.96);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            background: linear-gradient(145deg, #0f172a, #1e293b);
+        }
+
+        .btn-key:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: #ef4444;
+            color: #ef4444;
+            background: #18181b;
+        }
+
+        /* Scratchpad Digit Pills */
+        .scratch-pill {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .scratch-pill.eliminated {
+            background-color: rgba(239, 68, 68, 0.25) !important;
+            color: #fca5a5 !important;
+            text-decoration: line-through;
+            border-color: rgba(239, 68, 68, 0.5) !important;
+            opacity: 0.5;
+        }
+
+        .scratch-pill.highlighted {
+            background-color: rgba(16, 185, 129, 0.3) !important;
+            color: #6ee7b7 !important;
+            border-color: #10b981 !important;
+            font-weight: bold;
+        }
+
+        /* Shaking Error Animation */
+        @keyframes shakeLock {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .shake-error {
+            animation: shakeLock 0.4s ease-in-out;
+            border-color: #ef4444 !important;
+        }
+
+        /* Background Grid */
+        .tech-bg {
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, rgba(56, 189, 248, 0.3), rgba(0,0,0,0)),
+                linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 100px 100px, 30px 30px, 30px 30px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between relative tech-bg overflow-x-hidden">
+
+    <!-- Ambient Neon Lights -->
+    <div class="fixed top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="fixed bottom-0 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- HEADER HUD -->
+    <header class="w-full max-w-6xl mx-auto p-3 sm:p-4 relative z-10">
+        <div class="glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 border-cyan-500/30">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-amber-500 via-cyan-400 to-indigo-500 p-0.5 shadow-lg flex items-center justify-center">
+                    <div class="w-full h-full bg-gray-950 rounded-[10px] flex items-center justify-center text-amber-400">
+                        <i class="fa-solid fa-vault text-xl sm:text-2xl animate-pulse"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-cyan-300 to-emerald-400 font-orbitron tracking-wider">
+                        LOGIC LOCK
+                    </h1>
+                    <p class="text-[10px] sm:text-xs text-gray-400 font-medium">เกมถอดรหัสกล่องนิรภัยเชิงตรรกศาสตร์</p>
+                </div>
+            </div>
+
+            <!-- Stats HUD Counters -->
+            <div class="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+                
+                <!-- Level Badge -->
+                <div class="px-3 py-1.5 rounded-xl bg-gray-900/90 border border-cyan-500/40 text-center min-w-[75px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">ด่าน (LEVEL)</div>
+                    <div id="hudLevel" class="text-sm sm:text-base font-black text-cyan-400 font-orbitron">1</div>
+                </div>
+
+                <!-- Score Counter -->
+                <div class="px-3 py-1.5 rounded-xl bg-gray-900/90 border border-amber-500/40 text-center min-w-[85px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">คะแนน (SCORE)</div>
+                    <div id="hudScore" class="text-sm sm:text-base font-black text-amber-400 font-orbitron">0</div>
+                </div>
+
+                <!-- Streak Multiplier -->
+                <div class="px-3 py-1.5 rounded-xl bg-gray-900/90 border border-emerald-500/40 text-center min-w-[70px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">STREAK</div>
+                    <div id="hudStreak" class="text-sm sm:text-base font-black text-emerald-400 font-orbitron">x1</div>
+                </div>
+
+                <!-- Sound Toggle Button -->
+                <button id="btnSound" onclick="toggleSound()" class="p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-cyan-400 border border-gray-700 transition cursor-pointer">
+                    <i id="iconSound" class="fa-solid fa-volume-high text-base"></i>
+                </button>
+
+                <!-- Help Button -->
+                <button onclick="openHelpModal()" class="p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-amber-400 border border-gray-700 transition cursor-pointer">
+                    <i class="fa-solid fa-circle-question text-base"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GAMEPLAY CONTENT -->
+    <main class="w-full max-w-6xl mx-auto px-3 sm:px-4 py-2 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 relative z-10">
+        
+        <!-- LEFT COLUMN: VAULT SAFE VISUAL & LED INPUT DISPLAY (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+            
+            <!-- Safe Visual Container -->
+            <div id="safeContainer" class="glass-panel rounded-3xl p-5 border-cyan-500/30 flex flex-col items-center justify-between relative overflow-hidden shadow-2xl min-h-[340px]">
+                
+                <!-- Safe Door Status Banner -->
+                <div class="w-full flex items-center justify-between border-b border-gray-800 pb-3 mb-3">
+                    <div class="flex items-center gap-2">
+                        <span id="safeStatusDot" class="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></span>
+                        <span id="safeStatusText" class="text-xs font-bold text-rose-400 tracking-wider font-tech uppercase">LOCKED (ล็อกอยู่)</span>
+                    </div>
+                    <span id="hudDifficultyBadge" class="px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700 text-[10px] font-bold">
+                        HINTS: 3 ข้อ
+                    </span>
+                </div>
+
+                <!-- Metallic Safe Wheel Graphic -->
+                <div class="relative w-48 h-48 my-2 flex items-center justify-center">
+                    
+                    <!-- Outer Metallic Ring -->
+                    <div class="absolute inset-0 rounded-full border-4 border-gray-700 bg-gradient-to-tr from-gray-900 via-slate-800 to-gray-900 shadow-2xl flex items-center justify-center">
+                        <div class="w-40 h-40 rounded-full border-2 border-dashed border-cyan-500/40 flex items-center justify-center">
+                            
+                            <!-- Spinning Handle -->
+                            <div id="vaultHandle" class="vault-handle w-28 h-28 rounded-full border-4 border-amber-500/60 bg-gradient-to-b from-gray-800 to-gray-950 flex items-center justify-center shadow-inner relative">
+                                <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-600 shadow-md flex items-center justify-center border border-amber-300">
+                                    <i class="fa-solid fa-key text-gray-950 text-lg"></i>
+                                </div>
+                                <!-- Handles Spoke Lines -->
+                                <div class="absolute w-full h-2 bg-amber-500/40 rounded-full pointer-events-none"></div>
+                                <div class="absolute h-full w-2 bg-amber-500/40 rounded-full pointer-events-none"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Glowing Unlocked Treasure Light inside Safe -->
+                    <div id="vaultTreasure" class="hidden absolute inset-0 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 blur-xl opacity-80 animate-pulse"></div>
+                </div>
+
+                <!-- 3-Digit Code LED Display Screen -->
+                <div class="w-full mt-3">
+                    <div class="text-[10px] text-gray-400 font-bold text-center mb-1 uppercase tracking-widest font-tech">
+                        ป้อนรหัสผ่าน 3 หลัก (CURRENT CODE)
+                    </div>
+                    
+                    <div id="ledDisplayBox" class="flex items-center justify-center gap-3 p-3 rounded-2xl bg-gray-950 border border-gray-800 shadow-inner">
+                        <!-- Digit 1 Slot -->
+                        <div id="slot0" onclick="setActiveSlot(0)" class="led-digit active w-16 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer transition transform hover:scale-105">
+                            <span class="text-3xl font-black" id="digitVal0">-</span>
+                            <span class="text-[9px] text-cyan-400/70 font-sans">หลักที่ 1</span>
+                        </div>
+
+                        <span class="text-gray-700 text-2xl font-bold font-orbitron">-</span>
+
+                        <!-- Digit 2 Slot -->
+                        <div id="slot1" onclick="setActiveSlot(1)" class="led-digit w-16 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer transition transform hover:scale-105">
+                            <span class="text-3xl font-black" id="digitVal1">-</span>
+                            <span class="text-[9px] text-cyan-400/70 font-sans">หลักที่ 2</span>
+                        </div>
+
+                        <span class="text-gray-700 text-2xl font-bold font-orbitron">-</span>
+
+                        <!-- Digit 3 Slot -->
+                        <div id="slot2" onclick="setActiveSlot(2)" class="led-digit w-16 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer transition transform hover:scale-105">
+                            <span class="text-3xl font-black" id="digitVal2">-</span>
+                            <span class="text-[9px] text-cyan-400/70 font-sans">หลักที่ 3</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Keypad Control Box -->
+            <div class="glass-panel rounded-3xl p-4 border-cyan-500/30">
+                
+                <!-- Forbidden Numbers Warning Banner (Level 3+) -->
+                <div id="forbiddenBanner" class="hidden mb-3 p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-ban text-rose-400 text-sm"></i>
+                    <div>
+                        <span class="font-bold">ตัวเลขต้องห้าม (Forbidden Digits):</span>
+                        <span id="forbiddenList" class="font-bold font-orbitron ml-1 text-amber-300"></span>
+                    </div>
+                </div>
+
+                <!-- 0-9 Keypad Grid -->
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button onclick="pressNum(1)" id="key1" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">1</button>
+                    <button onclick="pressNum(2)" id="key2" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">2</button>
+                    <button onclick="pressNum(3)" id="key3" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">3</button>
+                    <button onclick="pressNum(4)" id="key4" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">4</button>
+                    <button onclick="pressNum(5)" id="key5" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">5</button>
+                    <button onclick="pressNum(6)" id="key6" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">6</button>
+                    <button onclick="pressNum(7)" id="key7" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">7</button>
+                    <button onclick="pressNum(8)" id="key8" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">8</button>
+                    <button onclick="pressNum(9)" id="key9" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">9</button>
+                    <button onclick="pressNum(0)" id="key0" class="btn-key py-3 rounded-xl font-orbitron font-bold text-xl text-gray-100 hover:text-cyan-400">0</button>
+                    <button onclick="pressBackspace()" class="btn-key py-3 rounded-xl font-bold text-rose-400 hover:bg-rose-950/40 text-sm flex items-center justify-center">
+                        <i class="fa-solid fa-backspace"></i>
+                    </button>
+                    <button onclick="clearInput()" class="btn-key py-3 rounded-xl font-bold text-amber-400 hover:bg-amber-950/40 text-xs">
+                        CLEAR
+                    </button>
+                </div>
+
+                <!-- Submit Action Button -->
+                <button id="btnUnlock" onclick="submitCode()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-cyan-400 to-emerald-400 hover:from-amber-400 hover:to-emerald-300 text-gray-950 font-black text-base shadow-lg shadow-cyan-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-98 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-unlock text-lg"></i> ปลดล็อกเซฟ (UNLOCK)
+                </button>
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: HINTS & INTERACTIVE LOGIC SCRATCHPAD (7 Cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-4">
+            
+            <!-- HINTS BOARD CARD -->
+            <div class="glass-panel rounded-3xl p-5 border-amber-500/30 flex-1 flex flex-col justify-between shadow-2xl">
+                
+                <div>
+                    <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-800">
+                        <h2 class="text-base sm:text-lg font-bold text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-lightbulb text-yellow-400"></i> คำใบ้ถอดรหัส (LOGIC HINTS)
+                        </h2>
+                        <span id="hintCountBadge" class="text-xs font-bold text-cyan-300 bg-gray-900 px-3 py-1 rounded-full border border-gray-700">
+                            3 ข้อ
+                        </span>
+                    </div>
+
+                    <!-- Dynamic Hint Cards List Container -->
+                    <div id="hintsContainer" class="space-y-2.5">
+                        <!-- Hint Cards Injected Dynamically by JS -->
+                    </div>
+                </div>
+
+                <!-- Action Toolbar: Give Up / Reset Round -->
+                <div class="mt-5 pt-3 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2">
+                    <button onclick="resetScratchpad()" class="text-xs text-gray-400 hover:text-cyan-300 px-3 py-1.5 rounded-xl bg-gray-900 border border-gray-800 transition flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-rotate-left"></i> รีเซ็ตตารางทด
+                    </button>
+
+                    <button onclick="skipLevel()" class="text-xs text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-xl bg-rose-950/30 border border-rose-800/50 transition flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-forward"></i> ข้ามด่านนี้ (-50 คะแนน)
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- INTERACTIVE LOGIC SCRATCHPAD (ตารางทดวิเคราะห์เลข) -->
+            <div class="glass-panel rounded-3xl p-4 sm:p-5 border-emerald-500/30">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-400 text-sm"></i>
+                        <h3 class="text-xs sm:text-sm font-bold text-emerald-300">ตารางทดวิเคราะห์ตัวเลข (LOGIC SCRATCHPAD)</h3>
+                    </div>
+                    <span class="text-[10px] text-gray-400">แตะตัวเลขเพื่อตัดออก / ไฮไลต์</span>
+                </div>
+
+                <!-- Scratchpad Grid for 3 Digits -->
+                <div class="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                    
+                    <!-- Digit 1 Helper Column -->
+                    <div class="bg-gray-950/80 p-2 rounded-2xl border border-gray-800">
+                        <div class="text-[10px] font-bold text-cyan-400 mb-1.5 font-tech">หลักที่ 1 (D1)</div>
+                        <div id="scratchCol0" class="grid grid-cols-5 gap-1">
+                            <!-- Pills 0-9 inserted by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Digit 2 Helper Column -->
+                    <div class="bg-gray-950/80 p-2 rounded-2xl border border-gray-800">
+                        <div class="text-[10px] font-bold text-cyan-400 mb-1.5 font-tech">หลักที่ 2 (D2)</div>
+                        <div id="scratchCol1" class="grid grid-cols-5 gap-1">
+                            <!-- Pills 0-9 inserted by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Digit 3 Helper Column -->
+                    <div class="bg-gray-950/80 p-2 rounded-2xl border border-gray-800">
+                        <div class="text-[10px] font-bold text-cyan-400 mb-1.5 font-tech">หลักที่ 3 (D3)</div>
+                        <div id="scratchCol2" class="grid grid-cols-5 gap-1">
+                            <!-- Pills 0-9 inserted by JS -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- WELCOME / START MODAL -->
+    <div id="modalStart" class="fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-amber-500/40 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-500 via-cyan-400 to-emerald-400 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-gray-950 rounded-[14px] flex items-center justify-center text-4xl text-amber-400">
+                    <i class="fa-solid fa-shield-halved animate-pulse"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-cyan-300 to-emerald-400 font-orbitron mb-2">
+                LOGIC LOCK
+            </h2>
+            <p class="text-xs sm:text-sm text-gray-300 mb-5 leading-relaxed bg-gray-900/80 p-3.5 rounded-2xl border border-gray-800">
+                ภารกิจถอดรหัสกล่องนิรภัย! วิเคราะห์คำใบ้เชิงตรรกศาสตร์ หาเลขรหัส 3 หลักที่ถูกต้องเพื่อเปิดเซฟ
+            </p>
+
+            <div class="space-y-2 text-xs text-gray-300 text-left mb-6 bg-gray-950/80 p-3.5 rounded-2xl border border-cyan-500/30">
+                <div class="font-bold text-cyan-400 text-center mb-1">🔐 ระดับความยาก (LEVELS):</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> <strong class="text-amber-300">Level 1:</strong> คำใบ้พื้นฐาน 3 ข้อ</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> <strong class="text-amber-300">Level 2:</strong> คำใบ้เชิงความสัมพันธ์ 4 ข้อ</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-400"></i> <strong class="text-amber-300">Level 3+:</strong> เพิ่มกฎ "ตัวเลขต้องห้าม" ตัดตัวเลือก</div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-cyan-400 to-emerald-400 hover:from-amber-400 hover:to-emerald-300 text-gray-950 font-black text-lg shadow-lg shadow-cyan-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                START DECODING <i class="fa-solid fa-play ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- SUCCESS / LEVEL COMPLETED MODAL -->
+    <div id="modalSuccess" class="hidden fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-emerald-500/50 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-300 to-cyan-400 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-gray-950 rounded-[14px] flex items-center justify-center text-4xl text-emerald-400">
+                    <i class="fa-solid fa-lock-open text-emerald-400 animate-bounce"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300 font-orbitron mb-1">
+                ACCESS GRANTED!
+            </h2>
+            <p class="text-xs text-gray-300 mb-4">เปิดกล่องนิรภัยสำเร็จ! รหัสผ่านที่ถูกต้องคือ:</p>
+
+            <!-- Revealed Correct Code Box -->
+            <div class="flex justify-center items-center gap-3 my-4">
+                <span id="resDigit0" class="w-14 h-16 rounded-xl bg-emerald-950 border-2 border-emerald-500 text-emerald-300 text-3xl font-black font-orbitron flex items-center justify-center shadow-lg">0</span>
+                <span id="resDigit1" class="w-14 h-16 rounded-xl bg-emerald-950 border-2 border-emerald-500 text-emerald-300 text-3xl font-black font-orbitron flex items-center justify-center shadow-lg">0</span>
+                <span id="resDigit2" class="w-14 h-16 rounded-xl bg-emerald-950 border-2 border-emerald-500 text-emerald-300 text-3xl font-black font-orbitron flex items-center justify-center shadow-lg">0</span>
+            </div>
+
+            <div class="bg-gray-900/90 rounded-2xl p-3.5 border border-gray-800 space-y-2 mb-6 text-xs sm:text-sm">
+                <div class="flex justify-between items-center text-gray-300">
+                    <span>คะแนนที่ได้รับ (Earned Points):</span>
+                    <span id="resPoints" class="font-bold text-amber-400 font-orbitron text-base">+100</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300">
+                    <span>คะแนนสะสมรวม (Total Score):</span>
+                    <span id="resTotalScore" class="font-bold text-emerald-400 font-orbitron text-base">100</span>
+                </div>
+            </div>
+
+            <button onclick="nextLevel()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-cyan-400 to-emerald-400 hover:from-amber-400 hover:to-emerald-300 text-gray-950 font-black text-lg shadow-lg shadow-cyan-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                NEXT LEVEL <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- INSTRUCTIONS / HELP MODAL -->
+    <div id="modalHelp" class="hidden fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 border-2 border-cyan-500/40 text-center relative overflow-hidden shadow-2xl">
+            <button onclick="closeHelpModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h3 class="text-xl font-black text-amber-400 font-orbitron mb-3">คำแนะนำการเล่น (HOW TO PLAY)</h3>
+
+            <div class="bg-gray-900/90 rounded-2xl p-4 border border-gray-800 text-left text-xs space-y-3 mb-5 leading-relaxed text-gray-300">
+                <p><strong class="text-cyan-400">1. อ่านคำใบ้:</strong> ในแต่ละด่าน ระบบจะสร้างคำใบ้เชิงตรรกศาสตร์ของรหัสผ่าน 3 หลัก เช่น เลขคู่/คี่, การเปรียบเทียบค่า, ผลบวกผลลบ</p>
+                <p><strong class="text-cyan-400">2. ใช้ตารางทด (Scratchpad):</strong> แตะที่ตัวเลข 0-9 ในแต่ละหลักล่างสุดเพื่อตัดเลขที่ไม่ใช่ หรือไฮไลต์เลขที่มั่นใจ</p>
+                <p><strong class="text-cyan-400">3. ระดับความยาก:</strong>
+                    <br>• <b>Level 1:</b> คำใบ้ 3 ข้อ
+                    <br>• <b>Level 2:</b> คำใบ้ 4 ข้อ
+                    <br>• <b>Level 3+:</b> มีเลขต้องห้ามที่ไม่สามารถใช้ได้ในรหัส</p>
+            </div>
+
+            <button onclick="closeHelpModal()" class="w-full py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-black text-sm font-orbitron cursor-pointer">
+                GOT IT!
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="w-full max-w-6xl mx-auto p-3 text-center text-[11px] text-gray-500 font-medium z-10">
+        Logic Lock &copy; 2026 - เกมปริศนาตรรกศาสตร์และความคิดสร้างสรรค์ HTML5
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. WEB AUDIO SYNTHESIZER ENGINE
+           ========================================================================== */
+        class AudioController {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playKeyBeep() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(850, now + 0.05);
+
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            }
+
+            playErrorSound() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playUnlockFanfare() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const freqs = [523.25, 659.25, 783.99, 1046.50];
+
+                freqs.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.09);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.09);
+                    osc.stop(now + idx * 0.09 + 0.35);
+                });
+            }
+
+            playScratchToggle() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.04);
+            }
+        }
+
+        const sound = new AudioController();
+
+        function toggleSound() {
+            sound.muted = !sound.muted;
+            const icon = document.getElementById('iconSound');
+            icon.className = sound.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high text-cyan-400';
+        }
+
+        /* ==========================================================================
+           2. PROCEDURAL LOGIC PUZZLE GENERATOR & SOLVER
+           ========================================================================== */
+
+        // Helper functions
+        const isEven = n => n % 2 === 0;
+        const isPrime = n => [2, 3, 5, 7].includes(n);
+        const isSquare = n => [0, 1, 4, 9].includes(n);
+
+        class PuzzleGenerator {
+            static generate(level) {
+                let attempts = 0;
+                while (attempts < 500) {
+                    attempts++;
+                    // 1. Pick a secret 3-digit combination [d1, d2, d3]
+                    const d1 = Math.floor(Math.random() * 10);
+                    const d2 = Math.floor(Math.random() * 10);
+                    const d3 = Math.floor(Math.random() * 10);
+                    const secret = [d1, d2, d3];
+
+                    // Determine forbidden digits for Level 3+
+                    let forbiddenDigits = [];
+                    if (level >= 3) {
+                        // Choose 2-3 digits not present in secret
+                        const available = [0,1,2,3,4,5,6,7,8,9].filter(x => !secret.includes(x));
+                        // Shuffle available
+                        for (let i = available.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [available[i], available[j]] = [available[j], available[i]];
+                        }
+                        forbiddenDigits = available.slice(0, 2 + (level > 4 ? 1 : 0));
+                    }
+
+                    // Generate a pool of valid candidate hints for this secret
+                    const candidateHints = this.createCandidateHints(secret, forbiddenDigits);
+
+                    // Target hint count based on level
+                    const targetHintCount = level === 1 ? 3 : (level === 2 ? 4 : 4);
+
+                    // Try selecting candidate hints that yield EXACTLY 1 unique solution
+                    const selected = this.findUniqueHintSubset(candidateHints, secret, targetHintCount, forbiddenDigits);
+
+                    if (selected) {
+                        return {
+                            secret: secret,
+                            hints: selected,
+                            forbidden: forbiddenDigits,
+                            level: level
+                        };
+                    }
+                }
+
+                // Fallback guaranteed puzzle if random search fails
+                return {
+                    secret: [7, 4, 5],
+                    hints: [
+                        { text: "เลขหลักแรกมากกว่า 5", test: code => code[0] > 5 },
+                        { text: "เลขหลักที่สองเป็นเลขคู่", test: code => isEven(code[1]) },
+                        { text: "เลขหลักที่สาม = หลักแรก - 2", test: code => code[2] === code[0] - 2 },
+                        { text: "ผลรวมทั้ง 3 หลัก = 16", test: code => code[0] + code[1] + code[2] === 16 }
+                    ],
+                    forbidden: level >= 3 ? [0, 1] : [],
+                    level: level
+                };
+            }
+
+            static createCandidateHints(s, forbidden) {
+                const [d1, d2, d3] = s;
+                const hints = [];
+
+                // Single Digit Comparisons (d1, d2, d3)
+                if (d1 > 4) hints.push({ text: `เลขหลักแรกมากกว่า ${d1 - Math.floor(Math.random()*3 + 1)}`, test: c => c[0] > (d1 - 2) });
+                if (d1 < 7) hints.push({ text: `เลขหลักแรกน้อยกว่า ${d1 + Math.floor(Math.random()*3 + 1)}`, test: c => c[0] < (d1 + 2) });
+                hints.push({ text: `เลขหลักแรกเป็นเลข${isEven(d1) ? 'คู่' : 'คี่'}`, test: c => isEven(c[0]) === isEven(d1) });
+
+                if (d2 > 3) hints.push({ text: `เลขหลักที่สองมากกว่า ${Math.max(0, d2 - 2)}`, test: c => c[1] > Math.max(-1, d2 - 2) });
+                if (d2 < 8) hints.push({ text: `เลขหลักที่สองน้อยกว่า ${Math.min(9, d2 + 2)}`, test: c => c[1] < Math.min(10, d2 + 2) });
+                hints.push({ text: `เลขหลักที่สองเป็นเลข${isEven(d2) ? 'คู่' : 'คี่'}`, test: c => isEven(c[1]) === isEven(d2) });
+
+                if (d3 > 2) hints.push({ text: `เลขหลักที่สามมากกว่า ${Math.max(0, d3 - 2)}`, test: c => c[2] > Math.max(-1, d3 - 2) });
+                hints.push({ text: `เลขหลักที่สามเป็นเลข${isEven(d3) ? 'คู่' : 'คี่'}`, test: c => isEven(c[2]) === isEven(d3) });
+
+                // Relationships between Digits
+                if (d1 > d3) hints.push({ text: `เลขหลักที่สาม = หลักแรก - ${d1 - d3}`, test: c => c[2] === c[0] - (d1 - d3) });
+                if (d3 > d1) hints.push({ text: `เลขหลักที่สาม = หลักแรก + ${d3 - d1}`, test: c => c[2] === c[0] + (d3 - d1) });
+                if (d2 > d3) hints.push({ text: `เลขหลักที่สอง = หลักที่สาม + ${d2 - d3}`, test: c => c[1] === c[2] + (d2 - d3) });
+                if (d1 > d2) hints.push({ text: `เลขหลักแรกมากกว่าหลักที่สองอยู่ ${d1 - d2}`, test: c => c[0] - c[1] === d1 - d2 });
+
+                // Multipliers & Ratios
+                if (d3 > 0 && d2 === d3 * 2) hints.push({ text: `เลขหลักที่สองเป็น 2 เท่าของหลักที่สาม`, test: c => c[1] === c[2] * 2 });
+                if (d1 > 0 && d2 === d1 * 2) hints.push({ text: `เลขหลักที่สองเป็น 2 เท่าของหลักแรก`, test: c => c[1] === c[0] * 2 });
+
+                // Sums & Products
+                hints.push({ text: `ผลรวมของทั้ง 3 หลัก = ${d1 + d2 + d3}`, test: c => c[0] + c[1] + c[2] === (d1 + d2 + d3) });
+                hints.push({ text: `ผลบวกของหลักแรกและหลักที่สอง = ${d1 + d2}`, test: c => c[0] + c[1] === (d1 + d2) });
+                hints.push({ text: `ผลบวกของหลักที่สองและหลักที่สาม = ${d2 + d3}`, test: c => c[1] + c[2] === (d2 + d3) });
+
+                // Uniqueness of digits
+                const hasDuplicate = (d1 === d2 || d2 === d3 || d1 === d3);
+                if (!hasDuplicate) {
+                    hints.push({ text: `ตัวเลขทั้ง 3 หลักไม่ซ้ำกันเลย`, test: c => c[0] !== c[1] && c[1] !== c[2] && c[0] !== c[2] });
+                }
+
+                // Prime or Square properties
+                if (isPrime(d1)) hints.push({ text: `เลขหลักแรกเป็นเลขจำนวนเฉพาะ (2, 3, 5, 7)`, test: c => isPrime(c[0]) });
+                if (isPrime(d2)) hints.push({ text: `เลขหลักที่สองเป็นเลขจำนวนเฉพาะ (2, 3, 5, 7)`, test: c => isPrime(c[1]) });
+                if (isSquare(d1) && d1 > 0) hints.push({ text: `เลขหลักแรกเป็นเลขกำลังสองสมบูรณ์ (1, 4, 9)`, test: c => isSquare(c[0]) && c[0] > 0 });
+
+                return hints;
+            }
+
+            static findUniqueHintSubset(hints, secret, count, forbidden) {
+                // Shuffle hints
+                const shuffled = [...hints];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+
+                // Greedily pick hints that reduce solution space to 1
+                const selected = [];
+                
+                for (const hint of shuffled) {
+                    selected.push(hint);
+                    const solutions = PuzzleGenerator.countValidSolutions(selected, forbidden);
+                    if (solutions === 1) {
+                        return selected;
+                    }
+                    if (selected.length >= count + 2) break;
+                }
+
+                return null;
+            }
+
+            static countValidSolutions(hints, forbidden) {
+                let count = 0;
+                for (let i = 0; i < 10; i++) {
+                    if (forbidden.includes(i)) continue;
+                    for (let j = 0; j < 10; j++) {
+                        if (forbidden.includes(j)) continue;
+                        for (let k = 0; k < 10; k++) {
+                            if (forbidden.includes(k)) continue;
+                            const code = [i, j, k];
+                            if (hints.every(h => h.test(code))) {
+                                count++;
+                                if (count > 1) return count; // Short circuit if > 1
+                            }
+                        }
+                    }
+                }
+                return count;
+            }
+        }
+
+        /* ==========================================================================
+           3. GAME STATE MANAGEMENT
+           ========================================================================== */
+        let currentLevel = 1;
+        let score = 0;
+        let streak = 1;
+        let activeSlotIndex = 0;
+        let userInputCode = [null, null, null];
+        let currentPuzzle = null;
+
+        // Scratchpad state: 3 columns, each 0-9 state: 0=normal, 1=eliminated, 2=highlighted
+        let scratchpadState = Array(3).fill(null).map(() => Array(10).fill(0));
+
+        function startGame() {
+            currentLevel = 1;
+            score = 0;
+            streak = 1;
+
+            updateHUD();
+            document.getElementById('modalStart').classList.add('hidden');
+            loadLevel(currentLevel);
+        }
+
+        function loadLevel(lvl) {
+            userInputCode = [null, null, null];
+            activeSlotIndex = 0;
+            
+            // Close safe door visually
+            const doorHandle = document.getElementById('vaultHandle');
+            doorHandle.classList.remove('spinning');
+            document.getElementById('vaultTreasure').classList.add('hidden');
+            document.getElementById('safeStatusDot').className = 'w-3 h-3 rounded-full bg-rose-500 animate-pulse';
+            document.getElementById('safeStatusText').innerText = 'LOCKED (ล็อกอยู่)';
+            document.getElementById('safeStatusText').className = 'text-xs font-bold text-rose-400 tracking-wider font-tech uppercase';
+
+            // Generate puzzle
+            currentPuzzle = PuzzleGenerator.generate(lvl);
+
+            // Update HUD level & hints badge
+            document.getElementById('hudLevel').innerText = lvl;
+            document.getElementById('hudDifficultyBadge').innerText = `HINTS: ${currentPuzzle.hints.length} ข้อ`;
+            document.getElementById('hintCountBadge').innerText = `${currentPuzzle.hints.length} ข้อ`;
+
+            // Update Forbidden Digits Banner (Level 3+)
+            const forbiddenBanner = document.getElementById('forbiddenBanner');
+            const forbiddenList = document.getElementById('forbiddenList');
+            if (currentPuzzle.forbidden && currentPuzzle.forbidden.length > 0) {
+                forbiddenBanner.classList.remove('hidden');
+                forbiddenList.innerText = currentPuzzle.forbidden.join(', ');
+            } else {
+                forbiddenBanner.classList.add('hidden');
+            }
+
+            // Update Keypad Buttons (disable forbidden numbers)
+            for (let i = 0; i <= 9; i++) {
+                const btn = document.getElementById(`key${i}`);
+                if (currentPuzzle.forbidden.includes(i)) {
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            }
+
+            // Render Hints List
+            renderHintsList();
+
+            // Reset and render Scratchpad
+            resetScratchpad();
+            updateDisplaySlots();
+        }
+
+        function renderHintsList() {
+            const container = document.getElementById('hintsContainer');
+            container.innerHTML = '';
+
+            currentPuzzle.hints.forEach((hint, idx) => {
+                const card = document.createElement('div');
+                card.className = 'glass-card rounded-2xl p-3 sm:p-3.5 border border-gray-800 flex items-center gap-3 transition transform hover:border-amber-500/40';
+                card.innerHTML = `
+                    <div class="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-xs shrink-0 font-orbitron">
+                        ${idx + 1}
+                    </div>
+                    <div class="text-xs sm:text-sm text-gray-200 font-medium leading-snug">
+                        ${hint.text}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        /* Input Controls */
+        function setActiveSlot(index) {
+            sound.playKeyBeep();
+            activeSlotIndex = index;
+            updateDisplaySlots();
+        }
+
+        function pressNum(num) {
+            if (currentPuzzle.forbidden.includes(num)) return;
+            sound.playKeyBeep();
+
+            userInputCode[activeSlotIndex] = num;
+
+            // Auto advance slot
+            if (activeSlotIndex < 2) {
+                activeSlotIndex++;
+            }
+
+            updateDisplaySlots();
+        }
+
+        function pressBackspace() {
+            sound.playKeyBeep();
+            userInputCode[activeSlotIndex] = null;
+            if (activeSlotIndex > 0 && userInputCode[activeSlotIndex] === null) {
+                activeSlotIndex--;
+            }
+            updateDisplaySlots();
+        }
+
+        function clearInput() {
+            sound.playKeyBeep();
+            userInputCode = [null, null, null];
+            activeSlotIndex = 0;
+            updateDisplaySlots();
+        }
+
+        function updateDisplaySlots() {
+            for (let i = 0; i < 3; i++) {
+                const slotEl = document.getElementById(`slot${i}`);
+                const valEl = document.getElementById(`digitVal${i}`);
+
+                valEl.innerText = userInputCode[i] !== null ? userInputCode[i] : '-';
+
+                if (i === activeSlotIndex) {
+                    slotEl.classList.add('active');
+                } else {
+                    slotEl.classList.remove('active');
+                }
+            }
+        }
+
+        /* Scratchpad Logic */
+        function resetScratchpad() {
+            scratchpadState = Array(3).fill(null).map(() => Array(10).fill(0));
+
+            // Auto-eliminate forbidden numbers in scratchpad
+            if (currentPuzzle && currentPuzzle.forbidden) {
+                currentPuzzle.forbidden.forEach(num => {
+                    for (let col = 0; col < 3; col++) {
+                        scratchpadState[col][num] = 1; // eliminated
+                    }
+                });
+            }
+
+            renderScratchpad();
+        }
+
+        function renderScratchpad() {
+            for (let col = 0; col < 3; col++) {
+                const colEl = document.getElementById(`scratchCol${col}`);
+                colEl.innerHTML = '';
+
+                for (let num = 0; num <= 9; num++) {
+                    const state = scratchpadState[col][num];
+                    const pill = document.createElement('div');
+
+                    let stateClass = 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700';
+                    if (state === 1) stateClass = 'scratch-pill eliminated';
+                    if (state === 2) stateClass = 'scratch-pill highlighted';
+
+                    pill.className = `scratch-pill p-1 rounded-lg border text-[11px] font-bold font-orbitron text-center ${stateClass}`;
+                    pill.innerText = num;
+                    pill.onclick = () => toggleScratchState(col, num);
+
+                    colEl.appendChild(pill);
+                }
+            }
+        }
+
+        function toggleScratchState(col, num) {
+            sound.playScratchToggle();
+            // Cycle state: 0 (normal) -> 1 (eliminated) -> 2 (highlighted) -> 0
+            scratchpadState[col][num] = (scratchpadState[col][num] + 1) % 3;
+            renderScratchpad();
+        }
+
+        /* Submission & Answer Validation */
+        function submitCode() {
+            if (userInputCode.includes(null)) {
+                sound.playErrorSound();
+                shakeDisplay();
+                return;
+            }
+
+            const isCorrect = userInputCode.every((val, idx) => val === currentPuzzle.secret[idx]);
+
+            if (isCorrect) {
+                // SUCCESS
+                sound.playUnlockFanfare();
+
+                // Spin Vault Handle & Open Animation
+                const doorHandle = document.getElementById('vaultHandle');
+                doorHandle.classList.add('spinning');
+
+                document.getElementById('vaultTreasure').classList.remove('hidden');
+                document.getElementById('safeStatusDot').className = 'w-3 h-3 rounded-full bg-emerald-400 animate-ping';
+                document.getElementById('safeStatusText').innerText = 'UNLOCKED (ปลดล็อกแล้ว)';
+                document.getElementById('safeStatusText').className = 'text-xs font-bold text-emerald-400 tracking-wider font-tech uppercase';
+
+                // Calculate Score
+                const pointsEarned = 100 * streak;
+                score += pointsEarned;
+                streak++;
+
+                updateHUD();
+
+                // Show Success Modal after short delay
+                setTimeout(() => {
+                    document.getElementById('resDigit0').innerText = currentPuzzle.secret[0];
+                    document.getElementById('resDigit1').innerText = currentPuzzle.secret[1];
+                    document.getElementById('resDigit2').innerText = currentPuzzle.secret[2];
+
+                    document.getElementById('resPoints').innerText = `+${pointsEarned}`;
+                    document.getElementById('resTotalScore').innerText = score;
+
+                    document.getElementById('modalSuccess').classList.remove('hidden');
+                }, 800);
+
+            } else {
+                // WRONG ANSWER
+                sound.playErrorSound();
+                streak = 1;
+                updateHUD();
+                shakeDisplay();
+            }
+        }
+
+        function shakeDisplay() {
+            const ledBox = document.getElementById('ledDisplayBox');
+            ledBox.classList.add('shake-error');
+            setTimeout(() => ledBox.classList.remove('shake-error'), 400);
+        }
+
+        function nextLevel() {
+            document.getElementById('modalSuccess').classList.add('hidden');
+            currentLevel++;
+            loadLevel(currentLevel);
+        }
+
+        function skipLevel() {
+            sound.playKeyBeep();
+            if (score >= 50) score -= 50;
+            streak = 1;
+            updateHUD();
+            nextLevel();
+        }
+
+        function updateHUD() {
+            document.getElementById('hudLevel').innerText = currentLevel;
+            document.getElementById('hudScore').innerText = score;
+            document.getElementById('hudStreak').innerText = `x${streak}`;
+        }
+
+        /* Modal Helpers */
+        function openHelpModal() {
+            sound.playKeyBeep();
+            document.getElementById('modalHelp').classList.remove('hidden');
+        }
+
+        function closeHelpModal() {
+            sound.playKeyBeep();
+            document.getElementById('modalHelp').classList.add('hidden');
+        }
+
+        // Initialize keyboard shortcuts for standard desktop playback
+        window.addEventListener('keydown', (e) => {
+            if (document.getElementById('modalStart').classList.contains('hidden') === false) return;
+
+            if (e.key >= '0' && e.key <= '9') {
+                pressNum(parseInt(e.key));
+            } else if (e.key === 'Backspace') {
+                pressBackspace();
+            } else if (e.key === 'Enter') {
+                submitCode();
+            }
+        });
+    </script>
+</body>
+</html>

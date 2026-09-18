@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemistry Match - เกมจับคู่ธาตุเคมี</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Sarabun & Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;700&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+    <!-- MediaPipe Hands & Camera Utils -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        * {
+            font-family: 'Kanit', 'Sarabun', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+            overflow-x: hidden;
+            touch-action: none;
+        }
+
+        /* Animated glowing background grid */
+        .chem-bg {
+            background-image: 
+                linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        /* Glassmorphism elements */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* Element Card Animations & Styling */
+        .elem-card {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+            cursor: grab;
+        }
+
+        .elem-card:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+        }
+
+        .elem-card:active {
+            cursor: grabbing;
+        }
+
+        .elem-card.dragging {
+            opacity: 0.85;
+            scale: 1.05;
+            z-index: 40;
+            box-shadow: 0 20px 30px -10px rgba(129, 140, 248, 0.6);
+        }
+
+        .elem-card.matched {
+            animation: matchPop 0.4s ease-out forwards;
+            pointer-events: none;
+            opacity: 0.3;
+            filter: grayscale(0.8);
+        }
+
+        .elem-card.hint-glow {
+            animation: pulseGlow 1s infinite alternate;
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 25px #f59e0b !important;
+        }
+
+        .elem-card.wrong-shake {
+            animation: shakeError 0.4s ease-in-out;
+        }
+
+        /* Keyframe Animations */
+        @keyframes matchPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15) rotate(3deg); }
+            100% { transform: scale(0.95); opacity: 0.35; }
+        }
+
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+            100% { box-shadow: 0 0 25px rgba(245, 158, 11, 1); }
+        }
+
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        /* Custom Virtual Cursor for Hand Tracking */
+        #hand-cursor {
+            position: fixed;
+            pointer-events: none;
+            z-index: 100;
+            transform: translate(-50%, -50%);
+            transition: width 0.15s, height 0.15s, background-color 0.15s;
+        }
+
+        /* Floating background molecules effect */
+        .floating-bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(129, 140, 248, 0.4), rgba(79, 70, 229, 0.05));
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            animation: floatUp 12s infinite linear;
+            pointer-events: none;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(105vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+
+<body class="chem-bg text-white min-h-screen flex flex-col justify-between overflow-x-hidden relative">
+
+    <!-- Fullscreen Particle Effects Overlay Canvas -->
+    <canvas id="fx-canvas" class="fixed inset-0 pointer-events-none z-30 w-full h-full"></canvas>
+
+    <!-- Virtual Hand Cursor Indicator -->
+    <div id="hand-cursor" class="hidden w-8 h-8 rounded-full border-2 border-cyan-400 bg-cyan-400/30 flex items-center justify-center shadow-lg shadow-cyan-500/50">
+        <div id="hand-cursor-dot" class="w-2 h-2 rounded-full bg-cyan-300"></div>
+    </div>
+
+    <!-- Floating Chemistry Background Decorator Containers -->
+    <div id="bubbles-container" class="fixed inset-0 pointer-events-none overflow-hidden z-0"></div>
+
+    <!-- TOP NAVIGATION HUD -->
+    <header class="relative z-20 w-full max-w-6xl mx-auto px-4 pt-4 pb-2">
+        <div class="glass-panel rounded-2xl p-3 md:p-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+            <!-- Brand Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid font-bold text-xl md:text-2xl text-white fa-flask"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg md:text-xl tracking-wide bg-gradient-to-r from-white via-cyan-200 to-indigo-300 bg-clip-text text-transparent">Chemistry Match</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">จับคู่สัญลักษณ์ & ชื่อธาตุเคมี</p>
+                </div>
+            </div>
+
+            <!-- Game Stats Display -->
+            <div class="flex items-center gap-4 md:gap-6 bg-slate-900/60 px-4 py-2 rounded-xl border border-slate-700/60">
+                <!-- Score -->
+                <div class="text-center">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400">คะแนน</div>
+                    <div id="score-text" class="text-lg md:text-2xl font-bold text-cyan-400">0</div>
+                </div>
+                <div class="h-8 w-px bg-slate-700"></div>
+                <!-- Timer -->
+                <div class="text-center">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400">เวลา</div>
+                    <div id="timer-text" class="text-lg md:text-2xl font-bold text-amber-400">60s</div>
+                </div>
+                <div class="h-8 w-px bg-slate-700"></div>
+                <!-- Combo Multiplier -->
+                <div class="text-center">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400">คอมโบ</div>
+                    <div id="combo-text" class="text-lg md:text-2xl font-bold text-emerald-400">x1</div>
+                </div>
+            </div>
+
+            <!-- Quick Action Controls -->
+            <div class="flex items-center gap-2">
+                <!-- Hint Button -->
+                <button id="btn-hint" class="px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 transition flex items-center gap-1.5 text-xs md:text-sm font-semibold active:scale-95">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                    <span>คำใบ้ (<span id="hint-count">3</span>)</span>
+                </button>
+                <!-- Webcam Hand Tracking Toggle -->
+                <button id="btn-camera" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition text-sm active:scale-95" title="เปิด/ปิดกล้อง Hand Tracking">
+                    <i class="fa-solid fa-video-slash" id="camera-icon"></i>
+                </button>
+                <!-- Sound Toggle -->
+                <button id="btn-sound" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition text-sm active:scale-95" title="เปิด/ปิดเสียง">
+                    <i class="fa-solid fa-volume-high" id="sound-icon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="relative z-10 w-full max-w-5xl mx-auto px-4 my-auto py-4 flex-grow flex flex-col justify-center">
+
+        <!-- START SCREEN MODAL -->
+        <div id="start-screen" class="glass-panel rounded-3xl p-6 md:p-10 text-center max-w-xl mx-auto shadow-2xl border border-indigo-500/30">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-4xl shadow-lg shadow-cyan-500/30 animate-bounce">
+                <i class="fa-solid fa-atom text-white"></i>
+            </div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-cyan-300 via-white to-indigo-300 bg-clip-text text-transparent">Chemistry Match</h2>
+            <p class="text-slate-300 text-sm md:text-base mb-6 leading-relaxed">
+                ทดสอบความรู้ธาตุเคมีเบื้องต้น จับคู่สัญลักษณ์ธาตุทางซ้ายให้ตรงกับชื่อธาตุทางขวา! 
+                ลากด้วย <span class="text-cyan-300 font-semibold">Mouse / Touch</span> หรือใช้ <span class="text-amber-300 font-semibold">กล้อง Hand Tracking (จีบนิ้วเพื่อลาก)</span>
+            </p>
+
+            <div class="grid grid-cols-2 gap-3 mb-6 text-left text-xs md:text-sm bg-slate-900/60 p-4 rounded-2xl border border-slate-700/50">
+                <div class="flex items-center gap-2"><i class="fa-solid fa-bullseye text-cyan-400"></i> ตอบถูก: +100 คะแนน</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-xmark text-rose-400"></i> ตอบผิด: -20 คะแนน</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-fire text-amber-400"></i> ตอบถูกต่อเนื่อง: เพิ่ม Combo</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-layer-group text-indigo-400"></i> โหมดการเล่น: 5 ด่านต่อเนื่อง</div>
+            </div>
+
+            <button id="btn-start-game" class="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-lg shadow-lg shadow-indigo-500/40 transition hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play"></i> เริ่มเล่นเกม (5 ด่าน)
+            </button>
+        </div>
+
+        <!-- GAMEPLAY BOARD (Hidden initially) -->
+        <div id="game-board" class="hidden flex-col gap-4">
+            
+            <!-- Progress & Batch Info Header -->
+            <div class="flex justify-between items-center text-xs md:text-sm text-slate-300 px-2">
+                <div>ความคืบหน้า: <span id="progress-text" class="text-cyan-400 font-bold">0</span> / <span id="max-progress-text" class="text-cyan-300 font-bold">5</span> ธาตุ</div>
+                <div class="flex items-center gap-2">
+                    <span>ด่านที่ <span id="level-text" class="text-indigo-400 font-bold">1</span> / 5</span>
+                </div>
+            </div>
+
+            <!-- Matching Cards Container Grid (Expanded Spacing) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 items-start my-2">
+                <!-- LEFT COLUMN: Element Symbols -->
+                <div class="flex flex-col gap-3.5">
+                    <div class="text-center text-xs font-semibold uppercase tracking-wider text-cyan-400/80 mb-1">
+                        <i class="fa-solid fa-flask-vial mr-1"></i> สัญลักษณ์ธาตุ
+                    </div>
+                    <div id="symbols-container" class="flex flex-col gap-3.5">
+                        <!-- Symbol cards injected dynamically -->
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: Element Names -->
+                <div class="flex flex-col gap-3.5">
+                    <div class="text-center text-xs font-semibold uppercase tracking-wider text-indigo-400/80 mb-1">
+                        <i class="fa-solid fa-font mr-1"></i> ชื่อธาตุภาษาอังกฤษ / ไทย
+                    </div>
+                    <div id="names-container" class="flex flex-col gap-3.5">
+                        <!-- Name cards injected dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- WEBCAM PIP PREVIEW CONTAINER -->
+    <div id="webcam-pip" class="fixed bottom-4 right-4 z-40 hidden flex-col items-end">
+        <div class="relative rounded-2xl overflow-hidden border-2 border-cyan-400/60 shadow-2xl bg-slate-900 w-36 h-28 md:w-48 md:h-36">
+            <video id="webcam-video" class="w-full h-full object-cover -scale-x-100" autoplay playsinline muted></video>
+            <canvas id="webcam-canvas" class="absolute inset-0 w-full h-full object-cover -scale-x-100 pointer-events-none"></canvas>
+            <div class="absolute top-1 left-2 text-[10px] font-bold text-cyan-300 bg-slate-900/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Hand Camera
+            </div>
+        </div>
+        <div id="hand-status" class="text-[11px] bg-slate-900/90 text-slate-300 px-2 py-1 rounded-lg mt-1 border border-slate-700 shadow">
+            ตรวจจับมือ: <span class="text-amber-400">ยังไม่พบ</span>
+        </div>
+    </div>
+
+    <!-- LEVEL COMPLETE INTERMEDIATE MODAL -->
+    <div id="level-complete-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-panel rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl border border-emerald-500/30 transform transition-all">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-3xl text-emerald-400 shadow-lg shadow-emerald-500/20 animate-bounce">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h3 id="level-complete-title" class="text-2xl font-bold text-emerald-300 mb-1">ผ่านด่านที่ 1 สำเร็จ!</h3>
+            <p id="level-complete-sub" class="text-xs md:text-sm text-slate-300 mb-4">เก่งมาก! ได้รับโบนัสเวลา +<span id="level-time-bonus" class="text-amber-300 font-bold">0</span> คะแนน</p>
+            
+            <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700 mb-5 text-xs text-slate-300 text-left space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">ด่านถัดไป:</span>
+                    <span id="next-level-name" class="font-bold text-cyan-300 text-sm">ด่านที่ 2</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">กติกาเวลารอบถัดไป:</span>
+                    <span id="next-level-timer" class="font-bold text-amber-400">50 วินาที</span>
+                </div>
+            </div>
+
+            <button id="btn-next-level" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-white font-bold text-base shadow-lg shadow-emerald-500/30 transition hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                <span>เข้าสู่ด่านถัดไป</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- GAME OVER / RESULTS MODAL -->
+    <div id="gameover-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-panel rounded-3xl p-6 md:p-8 max-w-lg w-full text-center shadow-2xl border border-indigo-500/30 transform transition-all">
+            <!-- Animated Trophy Icon -->
+            <div class="w-20 h-20 mx-auto mb-3 rounded-full bg-amber-500/20 border-2 border-amber-400/50 flex items-center justify-center text-4xl text-amber-400 shadow-xl shadow-amber-500/20">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            
+            <h2 id="result-title" class="text-2xl md:text-3xl font-bold mb-1">สรุปผลการแข่งขัน!</h2>
+            <p id="result-sub" class="text-xs md:text-sm text-slate-300 mb-4">เยี่ยมมาก! คุณเรียนรู้ธาตุเคมีได้สมบูรณ์แบบ</p>
+
+            <!-- Star Rating Display -->
+            <div class="flex justify-center items-center gap-2 text-3xl md:text-4xl my-3 text-slate-600">
+                <i id="star-1" class="fa-solid fa-star transition-all duration-300"></i>
+                <i id="star-2" class="fa-solid fa-star transition-all duration-300"></i>
+                <i id="star-3" class="fa-solid fa-star transition-all duration-300"></i>
+            </div>
+
+            <!-- Stats Summary Cards Grid -->
+            <div class="grid grid-cols-2 gap-3 my-5 text-left text-xs md:text-sm">
+                <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block text-[11px]">คะแนนรวม</span>
+                    <span id="final-score" class="text-xl font-bold text-cyan-400">0</span>
+                </div>
+                <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block text-[11px]">คอมโบสูงสุด</span>
+                    <span id="max-combo" class="text-xl font-bold text-emerald-400">x0</span>
+                </div>
+                <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block text-[11px]">เวลาที่เหลือ</span>
+                    <span id="time-left" class="text-xl font-bold text-amber-400">0s</span>
+                </div>
+                <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 block text-[11px]">ความแม่นยำ</span>
+                    <span id="accuracy-text" class="text-xl font-bold text-indigo-400">100%</span>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-base shadow-lg shadow-indigo-500/30 transition hover:scale-[1.02] active:scale-95">
+                <i class="fa-solid fa-rotate-right mr-2"></i>เล่นอีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="relative z-10 text-center text-xs text-slate-500 py-3">
+        Chemistry Match &bull; HTML5 Learning Game &bull; Powered by MediaPipe Hands & Web Audio API
+    </footer>
+
+    <script>
+        /* CHEMISTRY DATASET (34 Common Chemistry Elements) */
+        const ELEMENTS_DATA = [
+            { symbol: 'H', name: 'Hydrogen', thaiName: 'ไฮโดรเจน', num: 1, color: 'from-cyan-500 to-blue-600', category: 'อโลหะ' },
+            { symbol: 'He', name: 'Helium', thaiName: 'ฮีเลียม', num: 2, color: 'from-purple-500 to-indigo-600', category: 'แก๊สเฉื่อย' },
+            { symbol: 'Li', name: 'Lithium', thaiName: 'ลิเธียม', num: 3, color: 'from-rose-500 to-pink-600', category: 'โลหะอัลคาไล' },
+            { symbol: 'C', name: 'Carbon', thaiName: 'คาร์บอน', num: 6, color: 'from-slate-600 to-zinc-800', category: 'อโลหะ' },
+            { symbol: 'N', name: 'Nitrogen', thaiName: 'ไนโตรเจน', num: 7, color: 'from-blue-500 to-indigo-600', category: 'อโลหะ' },
+            { symbol: 'O', name: 'Oxygen', thaiName: 'ออกซิเจน', num: 8, color: 'from-sky-400 to-blue-600', category: 'อโลหะ' },
+            { symbol: 'F', name: 'Fluorine', thaiName: 'ฟลูออรีน', num: 9, color: 'from-teal-400 to-emerald-600', category: 'แฮโลเจน' },
+            { symbol: 'Ne', name: 'Neon', thaiName: 'นีออน', num: 10, color: 'from-fuchsia-500 to-pink-600', category: 'แก๊สเฉื่อย' },
+            { symbol: 'Na', name: 'Sodium', thaiName: 'โซเดียม', num: 11, color: 'from-amber-500 to-orange-600', category: 'โลหะอัลคาไล' },
+            { symbol: 'Mg', name: 'Magnesium', thaiName: 'แมกนีเซียม', num: 12, color: 'from-lime-500 to-green-600', category: 'โลหะอัลคาไลน์เอิร์ท' },
+            { symbol: 'Al', name: 'Aluminium', thaiName: 'อะลูมิเนียม', num: 13, color: 'from-slate-400 to-slate-600', category: 'โลหะ' },
+            { symbol: 'Si', name: 'Silicon', thaiName: 'ซิลิคอน', num: 14, color: 'from-teal-500 to-cyan-700', category: 'กึ่งโลหะ' },
+            { symbol: 'P', name: 'Phosphorus', thaiName: 'ฟอสฟอรัส', num: 15, color: 'from-orange-500 to-red-600', category: 'อโลหะ' },
+            { symbol: 'S', name: 'Sulfur', thaiName: 'กำมะถัน', num: 16, color: 'from-yellow-400 to-amber-600', category: 'อโลหะ' },
+            { symbol: 'Cl', name: 'Chlorine', thaiName: 'คลอรีน', num: 17, color: 'from-emerald-400 to-teal-600', category: 'แฮโลเจน' },
+            { symbol: 'Ar', name: 'Argon', thaiName: 'อาร์กอน', num: 18, color: 'from-purple-400 to-indigo-600', category: 'แก๊สเฉื่อย' },
+            { symbol: 'K', name: 'Potassium', thaiName: 'โพแทสเซียม', num: 19, color: 'from-purple-600 to-violet-800', category: 'โลหะอัลคาไล' },
+            { symbol: 'Ca', name: 'Calcium', thaiName: 'แคลเซียม', num: 20, color: 'from-orange-400 to-amber-600', category: 'โลหะอัลคาไลน์เอิร์ท' },
+            { symbol: 'Ti', name: 'Titanium', thaiName: 'ไทเทเนียม', num: 22, color: 'from-slate-300 to-zinc-500', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Cr', name: 'Chromium', thaiName: 'โครเมียม', num: 24, color: 'from-cyan-400 to-slate-600', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Fe', name: 'Iron', thaiName: 'เหล็ก', num: 26, color: 'from-stone-500 to-stone-700', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Ni', name: 'Nickel', thaiName: 'นิกเกิล', num: 28, color: 'from-teal-300 to-slate-600', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Cu', name: 'Copper', thaiName: 'ทองแดง', num: 29, color: 'from-orange-600 to-amber-700', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Zn', name: 'Zinc', thaiName: 'สังกะสี', num: 30, color: 'from-cyan-600 to-slate-600', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Br', name: 'Bromine', thaiName: 'โบรมีน', num: 35, color: 'from-red-600 to-orange-700', category: 'แฮโลเจน' },
+            { symbol: 'Ag', name: 'Silver', thaiName: 'เงิน', num: 47, color: 'from-slate-300 to-slate-500', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Sn', name: 'Tin', thaiName: 'ดีบุก', num: 50, color: 'from-slate-400 to-zinc-600', category: 'โลหะ' },
+            { symbol: 'I', name: 'Iodine', thaiName: 'ไอโอดีน', num: 53, color: 'from-purple-400 to-pink-600', category: 'แฮโลเจน' },
+            { symbol: 'Ba', name: 'Barium', thaiName: 'แบเรียม', num: 56, color: 'from-emerald-500 to-green-700', category: 'โลหะอัลคาไลน์เอิร์ท' },
+            { symbol: 'Pt', name: 'Platinum', thaiName: 'แพลทินัม', num: 78, color: 'from-cyan-300 to-slate-400', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Au', name: 'Gold', thaiName: 'ทองคำ', num: 79, color: 'from-yellow-300 to-amber-500', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Hg', name: 'Mercury', thaiName: 'ปรอท', num: 80, color: 'from-indigo-400 to-slate-500', category: 'โลหะแทรนซิชัน' },
+            { symbol: 'Pb', name: 'Lead', thaiName: 'ตะกั่ว', num: 82, color: 'from-zinc-500 to-slate-700', category: 'โลหะ' },
+            { symbol: 'U', name: 'Uranium', thaiName: 'ยูเรเนียม', num: 92, color: 'from-green-400 to-emerald-700', category: 'แอกทิไนด์' }
+        ];
+
+        /* 5 LEVEL CONFIGURATIONS */
+        const LEVEL_CONFIGS = [
+            {
+                level: 1,
+                title: "ด่านที่ 1: ธาตุพื้นฐานรอบตัว",
+                targetMatches: 5,
+                timer: 60,
+                symbols: ['H', 'O', 'C', 'N', 'He', 'Na', 'Cl', 'Fe', 'Au', 'Ca']
+            },
+            {
+                level: 2,
+                title: "ด่านที่ 2: โลหะ & อโลหะใกล้ตัว",
+                targetMatches: 5,
+                timer: 50,
+                symbols: ['Li', 'Mg', 'Al', 'Si', 'P', 'S', 'K', 'Cu', 'Zn', 'Ag']
+            },
+            {
+                level: 3,
+                title: "ด่านที่ 3: แร่ธาตุ & แก๊สมีตระกูล",
+                targetMatches: 6,
+                timer: 45,
+                symbols: ['F', 'Ne', 'Pt', 'Hg', 'Pb', 'U', 'I', 'Br', 'Ar', 'Ba']
+            },
+            {
+                level: 4,
+                title: "ด่านที่ 4: โลหะแทรนซิชัน & อุตสาหกรรม",
+                targetMatches: 6,
+                timer: 40,
+                symbols: ['Sn', 'Ni', 'Cr', 'Ti', 'Fe', 'Cu', 'Zn', 'Ag', 'Al', 'Pt']
+            },
+            {
+                level: 5,
+                title: "ด่านที่ 5: ปรมาจารย์เคมี (สุ่มธาตุท้าทายความเร็ว)",
+                targetMatches: 7,
+                timer: 35,
+                symbols: 'ALL'
+            }
+        ];
+
+        /* GAME STATE MANAGEMENT VARIABLES */
+        let gameState = {
+            score: 0,
+            timer: 60,
+            combo: 1,
+            maxCombo: 1,
+            hintsLeft: 3,
+            totalMatched: 0,
+            levelMatched: 0,
+            correctAttempts: 0,
+            totalAttempts: 0,
+            currentLevel: 1,
+            activeLevelElements: [],
+            timerInterval: null,
+            soundEnabled: true,
+            cameraActive: false,
+            isPlaying: false,
+            selectedCard: null
+        };
+
+        /* WEB AUDIO API SYNTHESIZER FOR SOUND EFFECTS */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            play(type) {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                const now = this.ctx.currentTime;
+
+                if (type === 'match') {
+                    // Success chime arpeggio
+                    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+                        gain.gain.setValueAtTime(0.15, now + idx * 0.06);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.3);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.06);
+                        osc.stop(now + idx * 0.06 + 0.3);
+                    });
+                } else if (type === 'wrong') {
+                    // Error buzz tone
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.linearRampToValueAtTime(80, now + 0.25);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'grab') {
+                    // Soft pop when grabbing card
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'hint') {
+                    // Gentle bell shimmer
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                } else if (type === 'win') {
+                    // Win Fanfare
+                    [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        gain.gain.setValueAtTime(0.2, now + idx * 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.1);
+                        osc.stop(now + idx * 0.1 + 0.4);
+                    });
+                }
+            }
+        }
+        const audioEngine = new SoundEngine();
+
+        /* CANVAS PARTICLE SYSTEM */
+        const fxCanvas = document.getElementById('fx-canvas');
+        const fxCtx = fxCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            fxCanvas.width = window.innerWidth;
+            fxCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function spawnParticles(x, y, count = 30, color = '#38bdf8') {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 6;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 1,
+                    radius: 2 + Math.random() * 4,
+                    alpha: 1,
+                    decay: 0.02 + Math.random() * 0.02,
+                    color: color
+                });
+            }
+        }
+
+        function updateParticles() {
+            fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1; // gravity
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    fxCtx.save();
+                    fxCtx.globalAlpha = p.alpha;
+                    fxCtx.fillStyle = p.color;
+                    fxCtx.beginPath();
+                    fxCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    fxCtx.fill();
+                    fxCtx.restore();
+                }
+            }
+            requestAnimationFrame(updateParticles);
+        }
+        requestAnimationFrame(updateParticles);
+
+        /* Generate floating decor bubbles */
+        const bubblesContainer = document.getElementById('bubbles-container');
+        for (let i = 0; i < 15; i++) {
+            const bubble = document.createElement('div');
+            bubble.className = 'floating-bubble';
+            const size = 30 + Math.random() * 60;
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+            bubble.style.left = `${Math.random() * 100}%`;
+            bubble.style.animationDelay = `${Math.random() * 10}s`;
+            bubble.style.animationDuration = `${8 + Math.random() * 8}s`;
+            bubblesContainer.appendChild(bubble);
+        }
+
+        /* HAND TRACKING PIPELINE (MEDIAPIPE) */
+        let handTracker = null;
+        let webcamCamera = null;
+        let virtualCursor = { x: 0, y: 0, isPinching: false, draggedElement: null };
+
+        const handCursorEl = document.getElementById('hand-cursor');
+        const webcamVideo = document.getElementById('webcam-video');
+        const webcamCanvas = document.getElementById('webcam-canvas');
+        const webcamCtx = webcamCanvas.getContext('2d');
+        const handStatusEl = document.getElementById('hand-status');
+
+        function initHandTracking() {
+            if (typeof Hands === 'undefined') {
+                alert('ไม่สามารถโหลดสคริปต์ Hand Tracking ได้ ระบบจะปรับเป็น Mouse/Touch');
+                return;
+            }
+
+            handTracker = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+
+            handTracker.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.6
+            });
+
+            handTracker.onResults(onHandResults);
+
+            webcamCamera = new Camera(webcamVideo, {
+                onFrame: async () => {
+                    if (gameState.cameraActive) {
+                        await handTracker.send({ image: webcamVideo });
+                    }
+                },
+                width: 320,
+                height: 240
+            });
+        }
+
+        function onHandResults(results) {
+            webcamCanvas.width = webcamVideo.videoWidth || 320;
+            webcamCanvas.height = webcamVideo.videoHeight || 240;
+            webcamCtx.clearRect(0, 0, webcamCanvas.width, webcamCanvas.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                handStatusEl.innerHTML = 'ตรวจจับมือ: <span class="text-emerald-400 font-bold">กำลังใช้งาน</span>';
+                const landmarks = results.multiHandLandmarks[0];
+
+                // Draw landmarks on PIP preview
+                for (let lm of landmarks) {
+                    webcamCtx.fillStyle = '#22d3ee';
+                    webcamCtx.beginPath();
+                    webcamCtx.arc(lm.x * webcamCanvas.width, lm.y * webcamCanvas.height, 3, 0, Math.PI * 2);
+                    webcamCtx.fill();
+                }
+
+                // Index Tip (8) and Thumb Tip (4)
+                const indexTip = landmarks[8];
+                const thumbTip = landmarks[4];
+
+                // Convert normalized coordinates (mirrored X)
+                const targetX = (1 - indexTip.x) * window.innerWidth;
+                const targetY = indexTip.y * window.innerHeight;
+
+                // Smooth cursor position with EMA
+                virtualCursor.x = virtualCursor.x * 0.5 + targetX * 0.5;
+                virtualCursor.y = virtualCursor.y * 0.5 + targetY * 0.5;
+
+                // Position custom cursor element
+                handCursorEl.classList.remove('hidden');
+                handCursorEl.style.left = `${virtualCursor.x}px`;
+                handCursorEl.style.top = `${virtualCursor.y}px`;
+
+                // Calculate pinch distance between index and thumb
+                const pinchDist = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+                const isPinching = pinchDist < 0.06;
+
+                // Visual feedback on pinch
+                if (isPinching) {
+                    handCursorEl.classList.add('bg-emerald-400/50', 'border-emerald-300', 'scale-125');
+                    handCursorEl.classList.remove('bg-cyan-400/30', 'border-cyan-400');
+                } else {
+                    handCursorEl.classList.remove('bg-emerald-400/50', 'border-emerald-300', 'scale-125');
+                    handCursorEl.classList.add('bg-cyan-400/30', 'border-cyan-400');
+                }
+
+                // Process Hand Gesture Drag-and-Drop
+                handleHandGestureDrag(virtualCursor.x, virtualCursor.y, isPinching);
+
+            } else {
+                handStatusEl.innerHTML = 'ตรวจจับมือ: <span class="text-amber-400">ยังไม่พบ</span>';
+                handCursorEl.classList.add('hidden');
+                if (virtualCursor.isPinching) {
+                    handleHandGestureDrag(virtualCursor.x, virtualCursor.y, false); // release if lost
+                }
+            }
+        }
+
+        function handleHandGestureDrag(x, y, isPinching) {
+            if (isPinching && !virtualCursor.isPinching) {
+                // PINCH STARTED -> Grab Card
+                virtualCursor.isPinching = true;
+                const elementUnderCursor = document.elementFromPoint(x, y);
+                if (elementUnderCursor) {
+                    const card = elementUnderCursor.closest('.symbol-card');
+                    if (card && !card.classList.contains('matched')) {
+                        virtualCursor.draggedElement = card;
+                        card.classList.add('dragging');
+                        audioEngine.play('grab');
+                    }
+                }
+            } else if (isPinching && virtualCursor.isPinching && virtualCursor.draggedElement) {
+                // PINCH CONTINUING -> Drag Card
+                const card = virtualCursor.draggedElement;
+                card.style.position = 'fixed';
+                card.style.left = `${x - 60}px`;
+                card.style.top = `${y - 30}px`;
+                card.style.zIndex = '100';
+
+            } else if (!isPinching && virtualCursor.isPinching) {
+                // PINCH RELEASED -> Drop Card
+                virtualCursor.isPinching = false;
+                if (virtualCursor.draggedElement) {
+                    const card = virtualCursor.draggedElement;
+                    card.classList.remove('dragging');
+                    card.style.position = 'static';
+                    card.style.zIndex = '1';
+
+                    // Check drop target element
+                    const targetUnderCursor = document.elementFromPoint(x, y);
+                    if (targetUnderCursor) {
+                        const nameCard = targetUnderCursor.closest('.name-card');
+                        if (nameCard && !nameCard.classList.contains('matched')) {
+                            verifyMatch(card, nameCard);
+                        }
+                    }
+                    virtualCursor.draggedElement = null;
+                }
+            }
+        }
+
+        /* GAME CORE LOGIC */
+
+        function startNewGame() {
+            gameState.score = 0;
+            gameState.combo = 1;
+            gameState.maxCombo = 1;
+            gameState.hintsLeft = 3;
+            gameState.totalMatched = 0;
+            gameState.correctAttempts = 0;
+            gameState.totalAttempts = 0;
+            gameState.currentLevel = 1;
+            gameState.isPlaying = true;
+            gameState.selectedCard = null;
+
+            // Hide modals
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('gameover-modal').classList.add('hidden');
+            document.getElementById('level-complete-modal').classList.add('hidden');
+            document.getElementById('game-board').classList.remove('hidden');
+            document.getElementById('game-board').classList.add('flex');
+
+            loadLevel(1);
+        }
+
+        function loadLevel(levelNum) {
+            gameState.currentLevel = levelNum;
+            gameState.levelMatched = 0;
+            const config = LEVEL_CONFIGS[levelNum - 1];
+
+            gameState.timer = config.timer;
+            document.getElementById('level-text').textContent = levelNum;
+            document.getElementById('max-progress-text').textContent = config.targetMatches;
+            document.getElementById('progress-text').textContent = 0;
+
+            // Select elements for level
+            let candidateElements = [];
+            if (config.symbols === 'ALL') {
+                const shuffled = [...ELEMENTS_DATA].sort(() => 0.5 - Math.random());
+                candidateElements = shuffled.slice(0, config.targetMatches);
+            } else {
+                const filtered = ELEMENTS_DATA.filter(e => config.symbols.includes(e.symbol));
+                const shuffled = filtered.sort(() => 0.5 - Math.random());
+                candidateElements = shuffled.slice(0, config.targetMatches);
+            }
+            gameState.activeLevelElements = candidateElements;
+
+            updateHUD();
+            renderLevelCards();
+            startTimer();
+        }
+
+        function renderLevelCards() {
+            // Left side: Symbols
+            const symbolsContainer = document.getElementById('symbols-container');
+            symbolsContainer.innerHTML = '';
+            
+            // Right side: Names
+            const namesContainer = document.getElementById('names-container');
+            namesContainer.innerHTML = '';
+
+            // Fisher-Yates Shuffle for robust randomization
+            const shuffleArray = (arr) => {
+                const copy = [...arr];
+                for (let i = copy.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [copy[i], copy[j]] = [copy[j], copy[i]];
+                }
+                return copy;
+            };
+
+            let shuffledSymbols = shuffleArray(gameState.activeLevelElements);
+            let shuffledNames = shuffleArray(gameState.activeLevelElements);
+
+            let attempts = 0;
+            while (attempts < 10 && shuffledSymbols.some((item, idx) => item.symbol === shuffledNames[idx].symbol)) {
+                shuffledNames = shuffleArray(gameState.activeLevelElements);
+                attempts++;
+            }
+
+            shuffledSymbols.forEach(item => {
+                const symCard = document.createElement('div');
+                symCard.className = `symbol-card elem-card glass-panel rounded-2xl p-3.5 md:p-4 border-l-4 border-l-cyan-400 border-slate-700 bg-slate-900/90 hover:bg-slate-800/90 flex items-center justify-between shadow-xl transition-all`;
+                symCard.dataset.symbol = item.symbol;
+                symCard.setAttribute('draggable', 'true');
+
+                symCard.innerHTML = `
+                    <div class="flex items-center gap-3 md:gap-4">
+                        <span class="text-xs px-2 py-1 rounded-md bg-slate-800 text-amber-300 font-mono font-bold border border-slate-700/80 shadow-inner" title="เลขอะตอม">№ ${item.num}</span>
+                        <span class="text-3xl md:text-4xl font-extrabold text-white tracking-wide drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">${item.symbol}</span>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-950/90 text-cyan-300 border border-indigo-500/40 shadow-sm">${item.category}</span>
+                `;
+
+                setupCardEvents(symCard, 'symbol');
+                symbolsContainer.appendChild(symCard);
+            });
+
+            shuffledNames.forEach(item => {
+                const nameCard = document.createElement('div');
+                nameCard.className = `name-card elem-card glass-panel rounded-2xl p-3.5 md:p-4 border border-slate-700 bg-slate-900/90 hover:bg-slate-800/90 flex items-center justify-between shadow-xl transition-all`;
+                nameCard.dataset.symbol = item.symbol;
+
+                nameCard.innerHTML = `
+                    <div>
+                        <div class="font-bold text-base md:text-lg text-white tracking-wide drop-shadow-sm">${item.name}</div>
+                        <div class="text-xs text-cyan-200/80 font-medium">${item.thaiName}</div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 text-xs font-bold border border-slate-700 shadow-inner drop-zone">
+                        <i class="fa-solid fa-arrow-left text-cyan-400"></i>
+                    </div>
+                `;
+
+                setupCardEvents(nameCard, 'name');
+                namesContainer.appendChild(nameCard);
+            });
+        }
+
+        function setupCardEvents(card, type) {
+            if (type === 'symbol') {
+                // HTML5 Drag Events
+                card.addEventListener('dragstart', (e) => {
+                    card.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', card.dataset.symbol);
+                    audioEngine.play('grab');
+                });
+
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                });
+
+                // Alternative Touch / Click Select
+                card.addEventListener('click', () => {
+                    if (card.classList.contains('matched')) return;
+                    
+                    // Clear previous selection
+                    document.querySelectorAll('.symbol-card').forEach(c => c.classList.remove('ring-4', 'ring-cyan-400'));
+                    
+                    if (gameState.selectedCard === card) {
+                        gameState.selectedCard = null;
+                    } else {
+                        gameState.selectedCard = card;
+                        card.classList.add('ring-4', 'ring-cyan-400');
+                        audioEngine.play('grab');
+                    }
+                });
+            } else { // name card
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    card.classList.add('border-cyan-400', 'bg-cyan-500/10');
+                });
+
+                card.addEventListener('dragleave', () => {
+                    card.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+                    const symbol = e.dataTransfer.getData('text/plain');
+                    const symCard = document.querySelector(`.symbol-card[data-symbol="${symbol}"]`);
+                    if (symCard) {
+                        verifyMatch(symCard, card);
+                    }
+                });
+
+                card.addEventListener('click', () => {
+                    if (card.classList.contains('matched')) return;
+                    if (gameState.selectedCard) {
+                        verifyMatch(gameState.selectedCard, card);
+                        gameState.selectedCard.classList.remove('ring-4', 'ring-cyan-400');
+                        gameState.selectedCard = null;
+                    }
+                });
+            }
+        }
+
+        function verifyMatch(symCard, nameCard) {
+            gameState.totalAttempts++;
+            const sym = symCard.dataset.symbol;
+            const nameSym = nameCard.dataset.symbol;
+
+            if (sym === nameSym) {
+                // CORRECT MATCH!
+                gameState.correctAttempts++;
+                gameState.totalMatched++;
+                gameState.levelMatched++;
+                
+                const points = 100 * gameState.combo;
+                gameState.score += points;
+                gameState.combo++;
+                if (gameState.combo > gameState.maxCombo) {
+                    gameState.maxCombo = gameState.combo;
+                }
+
+                audioEngine.play('match');
+
+                const rect = nameCard.getBoundingClientRect();
+                spawnParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, 35, '#22d3ee');
+
+                symCard.classList.add('matched');
+                nameCard.classList.add('matched');
+                nameCard.querySelector('.drop-zone').innerHTML = '<i class="fa-solid fa-check text-emerald-400 text-sm"></i>';
+                nameCard.querySelector('.drop-zone').classList.add('bg-emerald-950', 'border-emerald-500');
+
+                updateHUD();
+
+                const currentConfig = LEVEL_CONFIGS[gameState.currentLevel - 1];
+                if (gameState.levelMatched >= currentConfig.targetMatches) {
+                    clearInterval(gameState.timerInterval);
+                    if (gameState.currentLevel < 5) {
+                        setTimeout(() => {
+                            showLevelCompleteModal();
+                        }, 500);
+                    } else {
+                        setTimeout(() => {
+                            endGame(true);
+                        }, 600);
+                    }
+                }
+
+            } else {
+                // WRONG MATCH!
+                gameState.score = Math.max(0, gameState.score - 20);
+                gameState.combo = 1;
+
+                audioEngine.play('wrong');
+
+                symCard.classList.add('wrong-shake');
+                nameCard.classList.add('wrong-shake');
+                setTimeout(() => {
+                    symCard.classList.remove('wrong-shake');
+                    nameCard.classList.remove('wrong-shake');
+                }, 400);
+
+                updateHUD();
+            }
+        }
+
+        function showLevelCompleteModal() {
+            // Bonus points for remaining time
+            const timeBonus = gameState.timer * 10;
+            gameState.score += timeBonus;
+            updateHUD();
+
+            audioEngine.play('win');
+            spawnParticles(window.innerWidth / 2, window.innerHeight / 2, 50, '#10b981');
+
+            const nextLvl = gameState.currentLevel + 1;
+            const nextConfig = LEVEL_CONFIGS[nextLvl - 1];
+
+            document.getElementById('level-complete-title').textContent = `ผ่านด่านที่ ${gameState.currentLevel} สำเร็จ!`;
+            document.getElementById('level-time-bonus').textContent = timeBonus;
+            document.getElementById('next-level-name').textContent = `${nextConfig.title}`;
+            document.getElementById('next-level-timer').textContent = `${nextConfig.timer} วินาที (${nextConfig.targetMatches} ธาตุ)`;
+
+            document.getElementById('level-complete-modal').classList.remove('hidden');
+        }
+
+        function triggerHint() {
+            if (gameState.hintsLeft <= 0 || !gameState.isPlaying) return;
+
+            const unmatchedSyms = Array.from(document.querySelectorAll('.symbol-card:not(.matched)'));
+            if (unmatchedSyms.length === 0) return;
+
+            const randomSymCard = unmatchedSyms[Math.floor(Math.random() * unmatchedSyms.length)];
+            const targetSymbol = randomSymCard.dataset.symbol;
+            const targetNameCard = document.querySelector(`.name-card[data-symbol="${targetSymbol}"]:not(.matched)`);
+
+            if (randomSymCard && targetNameCard) {
+                gameState.hintsLeft--;
+                audioEngine.play('hint');
+
+                randomSymCard.classList.add('hint-glow');
+                targetNameCard.classList.add('hint-glow');
+
+                setTimeout(() => {
+                    randomSymCard.classList.remove('hint-glow');
+                    targetNameCard.classList.remove('hint-glow');
+                }, 2500);
+
+                updateHUD();
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('score-text').textContent = gameState.score;
+            document.getElementById('combo-text').textContent = `x${gameState.combo}`;
+            document.getElementById('hint-count').textContent = gameState.hintsLeft;
+            document.getElementById('progress-text').textContent = gameState.levelMatched;
+
+            if (gameState.hintsLeft <= 0) {
+                document.getElementById('btn-hint').classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                document.getElementById('btn-hint').classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function startTimer() {
+            clearInterval(gameState.timerInterval);
+            gameState.timerInterval = setInterval(() => {
+                if (!gameState.isPlaying) return;
+                gameState.timer--;
+                document.getElementById('timer-text').textContent = `${gameState.timer}s`;
+
+                if (gameState.timer <= 10) {
+                    document.getElementById('timer-text').classList.add('text-rose-500', 'animate-pulse');
+                } else {
+                    document.getElementById('timer-text').classList.remove('text-rose-500', 'animate-pulse');
+                }
+
+                if (gameState.timer <= 0) {
+                    endGame(false);
+                }
+            }, 1000);
+        }
+
+        function endGame(isVictory) {
+            gameState.isPlaying = false;
+            clearInterval(gameState.timerInterval);
+
+            const accuracy = gameState.totalAttempts > 0 
+                ? Math.round((gameState.correctAttempts / gameState.totalAttempts) * 100) 
+                : 0;
+
+            // Calculate Stars based on total 5 levels score & performance
+            let stars = 0;
+            if (gameState.score >= 3500 && gameState.totalMatched >= 25) {
+                stars = 3;
+            } else if (gameState.score >= 2000 && gameState.totalMatched >= 15) {
+                stars = 2;
+            } else if (gameState.score > 0 || gameState.totalMatched >= 5) {
+                stars = 1;
+            }
+
+            if (stars >= 2) {
+                audioEngine.play('win');
+                spawnParticles(window.innerWidth / 2, window.innerHeight / 2, 80, '#f59e0b');
+            } else {
+                audioEngine.play('wrong');
+            }
+
+            document.getElementById('final-score').textContent = gameState.score;
+            document.getElementById('max-combo').textContent = `x${gameState.maxCombo}`;
+            document.getElementById('time-left').textContent = `${gameState.timer}s`;
+            document.getElementById('accuracy-text').textContent = `${accuracy}%`;
+
+            const titleEl = document.getElementById('result-title');
+            const subEl = document.getElementById('result-sub');
+
+            if (isVictory) {
+                titleEl.textContent = 'ยอดเยี่ยม! พิชิตครบทั้ง 5 ด่าน!';
+                titleEl.className = 'text-2xl md:text-3xl font-bold mb-1 text-cyan-300';
+                subEl.textContent = 'คุณคือสุดยอดเซียนเคมีแห่งยุค!';
+            } else {
+                titleEl.textContent = 'หมดเวลาแข่ง!';
+                titleEl.className = 'text-2xl md:text-3xl font-bold mb-1 text-amber-300';
+                subEl.textContent = 'พยายามได้ดีแล้ว! ลองอีกครั้งเพื่อพิชิตให้ครบ 5 ด่าน!';
+            }
+
+            for (let i = 1; i <= 3; i++) {
+                const starEl = document.getElementById(`star-${i}`);
+                if (i <= stars) {
+                    starEl.className = 'fa-solid fa-star transition-all duration-500 text-amber-400 scale-110 drop-shadow-[0_0_12px_rgba(245,158,11,0.8)]';
+                } else {
+                    starEl.className = 'fa-solid fa-star transition-all duration-300 text-slate-700';
+                }
+            }
+
+            document.getElementById('gameover-modal').classList.remove('hidden');
+        }
+
+        /* EVENT LISTENERS & CAMERA TOGGLE INITIALIZATION */
+        window.addEventListener('DOMContentLoaded', () => {
+            initHandTracking();
+
+            document.getElementById('btn-start-game').addEventListener('click', () => {
+                audioEngine.init();
+                startNewGame();
+            });
+
+            document.getElementById('btn-next-level').addEventListener('click', () => {
+                document.getElementById('level-complete-modal').classList.add('hidden');
+                loadLevel(gameState.currentLevel + 1);
+            });
+
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                startNewGame();
+            });
+
+            // Hint Button
+            document.getElementById('btn-hint').addEventListener('click', () => {
+                triggerHint();
+            });
+
+            // Camera Toggle Button
+            document.getElementById('btn-camera').addEventListener('click', async () => {
+                audioEngine.init();
+                const camIcon = document.getElementById('camera-icon');
+                const pip = document.getElementById('webcam-pip');
+
+                if (!gameState.cameraActive) {
+                    try {
+                        if (webcamCamera) {
+                            await webcamCamera.start();
+                            gameState.cameraActive = true;
+                            camIcon.className = 'fa-solid fa-video text-cyan-400';
+                            pip.classList.remove('hidden');
+                            pip.classList.add('flex');
+                        }
+                    } catch (err) {
+                        alert('ไม่สามารถเข้าถึงกล้องเว็บแคมได้ โปรดอนุญาตการใช้กล้องในเบราว์เซอร์');
+                    }
+                } else {
+                    if (webcamCamera) {
+                        await webcamCamera.stop();
+                        gameState.cameraActive = false;
+                        camIcon.className = 'fa-solid fa-video-slash text-slate-400';
+                        pip.classList.add('hidden');
+                        handCursorEl.classList.add('hidden');
+                    }
+                }
+            });
+
+            // Sound Toggle Button
+            document.getElementById('btn-sound').addEventListener('click', () => {
+                gameState.soundEnabled = !gameState.soundEnabled;
+                const soundIcon = document.getElementById('sound-icon');
+                if (gameState.soundEnabled) {
+                    soundIcon.className = 'fa-solid fa-volume-high text-slate-300';
+                } else {
+                    soundIcon.className = 'fa-solid fa-volume-xmark text-rose-400';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

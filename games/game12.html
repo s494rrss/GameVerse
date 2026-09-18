@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENERGY MANAGER - เกมบริหารจัดการพลังงานไฟฟ้า</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Prompt & Orbitron -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #0b1329;
+            color: #f1f5f9;
+            user-select: none;
+            min-height: 100vh;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+
+        /* Glassmorphic Panel UI */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Interactive Room Elements Animations */
+        .fan-blade {
+            transform-origin: center;
+        }
+        .fan-blade.spinning {
+            animation: spinFan 0.4s linear infinite;
+        }
+        @keyframes spinFan {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .ac-wind {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .ac-wind.active {
+            opacity: 1;
+            animation: blowWind 1.5s ease-in-out infinite;
+        }
+        @keyframes blowWind {
+            0%, 100% { transform: translateY(0) scaleY(1); opacity: 0.3; }
+            50% { transform: translateY(8px) scaleY(1.2); opacity: 0.9; }
+        }
+
+        .screen-glow {
+            transition: all 0.3s ease;
+        }
+        .screen-glow.on {
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.8), inset 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .light-bulb-glow {
+            transition: all 0.4s ease;
+        }
+        .light-bulb-glow.on {
+            filter: drop-shadow(0 0 25px rgba(250, 204, 21, 0.9));
+        }
+
+        .room-bg {
+            transition: background-color 0.5s ease;
+        }
+        .room-bg.lit {
+            background-color: #1e293b;
+        }
+        .room-bg.dark {
+            background-color: #090d16;
+        }
+
+        /* Energy Bar Progress Animation */
+        .energy-progress {
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
+        }
+
+        /* Card Toggle Effect */
+        .appliance-card {
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .appliance-card:hover {
+            transform: translateY(-4px);
+        }
+        .appliance-card.active-on {
+            border-color: #22c55e;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+            background: linear-gradient(135deg, rgba(22, 101, 52, 0.4), rgba(15, 23, 42, 0.8));
+        }
+
+        /* Shaking Error Animation */
+        @keyframes shakeMeter {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .shake-limit {
+            animation: shakeMeter 0.4s ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="flex flex-col justify-between min-h-screen relative overflow-x-hidden">
+
+    <!-- Background Neon Ambient Glows -->
+    <div class="fixed top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="fixed bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- HEADER / HUD BAR -->
+    <header class="w-full max-w-6xl mx-auto p-3 sm:p-4 relative z-10">
+        <div class="glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-emerald-400 via-teal-500 to-cyan-500 p-0.5 shadow-lg flex items-center justify-center">
+                    <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-emerald-400">
+                        <i class="fa-solid fa-bolt text-xl sm:text-2xl animate-pulse"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 font-orbitron tracking-wider">
+                        ENERGY MANAGER
+                    </h1>
+                    <p class="text-[10px] sm:text-xs text-slate-400 font-medium">เกมบริหารจัดการและประหยัดพลังงานไฟฟ้า</p>
+                </div>
+            </div>
+
+            <!-- Stats & Level HUD -->
+            <div class="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+                <!-- Level Counter -->
+                <div class="px-3 py-1.5 rounded-xl bg-slate-900 border border-emerald-500/40 text-center min-w-[75px]">
+                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">ด่าน (LEVEL)</div>
+                    <div id="hudLevel" class="text-sm sm:text-base font-black text-emerald-400 font-orbitron">1/10</div>
+                </div>
+
+                <!-- Total Score -->
+                <div class="px-3 py-1.5 rounded-xl bg-slate-900 border border-amber-500/40 text-center min-w-[85px]">
+                    <div class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">คะแนน (SCORE)</div>
+                    <div id="hudScore" class="text-sm sm:text-base font-black text-amber-400 font-orbitron">0</div>
+                </div>
+
+                <!-- Mute Sound Toggle -->
+                <button id="btnSound" onclick="toggleSound()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 transition cursor-pointer">
+                    <i id="iconSound" class="fa-solid fa-volume-high text-base"></i>
+                </button>
+
+                <!-- Level Select Modal Button -->
+                <button onclick="openLevelSelect()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition cursor-pointer" title="เลือกด่าน">
+                    <i class="fa-solid fa-list-check text-base"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GAMEPLAY AREA -->
+    <main class="w-full max-w-6xl mx-auto px-3 sm:px-4 py-2 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 relative z-10">
+        
+        <!-- LEFT COLUMN: INTERACTIVE ROOM VISUAL & ENERGY METER (6 Cols) -->
+        <section class="lg:col-span-6 flex flex-col gap-4">
+            
+            <!-- ENERGY METER CARD -->
+            <div id="meterContainer" class="glass-panel rounded-3xl p-4 sm:p-5 border-emerald-500/30">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-battery-half text-emerald-400 text-lg"></i>
+                        <span class="text-xs sm:text-sm font-bold text-slate-200">ENERGY METER (มาตรวัดพลังงาน)</span>
+                    </div>
+                    <div class="text-right">
+                        <span id="energyUsedText" class="text-base sm:text-xl font-black font-orbitron text-emerald-400">0</span>
+                        <span class="text-xs text-slate-400 font-bold font-orbitron"> / </span>
+                        <span id="energyLimitText" class="text-sm sm:text-base font-bold font-orbitron text-slate-400">100</span>
+                        <span class="text-xs font-bold text-slate-400"> Energy</span>
+                    </div>
+                </div>
+
+                <!-- Energy Progress Bar -->
+                <div class="w-full h-5 rounded-full bg-slate-950 p-0.5 border border-slate-800 relative overflow-hidden">
+                    <div id="energyBar" class="energy-progress h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 w-0"></div>
+                </div>
+
+                <!-- Status Limit Warning Message -->
+                <div class="flex justify-between items-center mt-2 text-[11px]">
+                    <span id="energyStatusText" class="text-emerald-400 font-medium">พลังงานอยู่ในเกณฑ์ปกติ</span>
+                    <span id="energyRemainingText" class="text-slate-400 font-orbitron">คงเหลือ: 100</span>
+                </div>
+            </div>
+
+            <!-- INTERACTIVE ROOM SIMULATION GRAPHIC -->
+            <div id="roomContainer" class="glass-panel rounded-3xl p-4 border-cyan-500/30 flex flex-col justify-between min-h-[300px] relative overflow-hidden shadow-2xl">
+                
+                <!-- Room Ceiling Light Fixture -->
+                <div class="flex justify-center relative z-10">
+                    <div class="flex flex-col items-center">
+                        <div class="w-1 h-8 bg-slate-700"></div>
+                        <div id="lampBulb" class="light-bulb-glow w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-900 border-2 border-slate-600">
+                            <i class="fa-solid fa-lightbulb text-xl text-slate-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Room Center Visual Scene -->
+                <div id="roomBg" class="room-bg dark absolute inset-0 rounded-3xl transition-all duration-500 pointer-events-none"></div>
+
+                <!-- Interactive Objects Inside Room -->
+                <div class="relative z-10 grid grid-cols-3 gap-2 my-auto p-2">
+                    
+                    <!-- Air Conditioner Visual -->
+                    <div class="col-span-3 flex flex-col items-center mb-2">
+                        <div id="acGraphic" class="w-48 h-10 rounded-lg bg-slate-200 border-2 border-slate-400 shadow-md flex items-center justify-between px-3 relative">
+                            <span class="text-[9px] font-bold text-slate-600 font-orbitron">AIR CON</span>
+                            <div id="acLed" class="w-2 h-2 rounded-full bg-slate-400"></div>
+                            
+                            <!-- Wind Animation Lines -->
+                            <div id="acWind" class="ac-wind absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-cyan-300 text-xs flex gap-2">
+                                <i class="fa-solid fa-wind"></i>
+                                <i class="fa-solid fa-wind"></i>
+                                <i class="fa-solid fa-wind"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Left: Fan -->
+                    <div class="flex flex-col items-center justify-end">
+                        <div class="relative flex flex-col items-center">
+                            <div id="fanHead" class="w-14 h-14 rounded-full border-2 border-slate-600 bg-slate-800 flex items-center justify-center relative shadow-md">
+                                <i id="fanBlades" class="fan-blade fa-solid fa-fan text-2xl text-slate-500"></i>
+                            </div>
+                            <div class="w-2 h-10 bg-slate-700"></div>
+                            <div class="w-12 h-3 bg-slate-800 rounded-t-md border-t border-slate-600"></div>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-1 font-bold">พัดลม (10)</span>
+                    </div>
+
+                    <!-- Center: Computer Workstation desk -->
+                    <div class="flex flex-col items-center justify-end">
+                        <div id="pcScreen" class="screen-glow w-20 h-14 rounded-md bg-slate-900 border-2 border-slate-700 flex flex-col items-center justify-center p-1 relative overflow-hidden">
+                            <div id="pcContent" class="hidden text-[8px] text-cyan-400 font-mono text-center leading-tight">
+                                &lt;CODE/&gt;<br>WORKING...
+                            </div>
+                        </div>
+                        <div class="w-4 h-4 bg-slate-700"></div>
+                        <div class="w-24 h-2 bg-amber-800 rounded-sm"></div>
+                        <span class="text-[10px] text-slate-400 mt-1 font-bold">คอมพิวเตอร์ (20)</span>
+                    </div>
+
+                    <!-- Right: Television -->
+                    <div class="flex flex-col items-center justify-end">
+                        <div id="tvScreen" class="screen-glow w-22 h-14 rounded-md bg-slate-900 border-2 border-slate-700 flex items-center justify-center relative overflow-hidden">
+                            <div id="tvContent" class="hidden text-[10px] text-amber-400 animate-pulse">
+                                <i class="fa-solid fa-tv text-lg"></i>
+                            </div>
+                        </div>
+                        <div class="w-10 h-2 bg-slate-800 rounded-b-sm"></div>
+                        <span class="text-[10px] text-slate-400 mt-1 font-bold">ทีวี (15)</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: MISSION OBJECTIVES & APPLIANCE TOGGLES (6 Cols) -->
+        <section class="lg:col-span-6 flex flex-col gap-4">
+            
+            <!-- MISSION CARD -->
+            <div class="glass-panel rounded-3xl p-4 sm:p-5 border-amber-500/30">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-base sm:text-lg font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-crosshair text-amber-400"></i> ภารกิจ (MISSION)
+                    </h2>
+                    <span id="levelTitleBadge" class="text-xs font-bold text-cyan-300 bg-slate-900 px-3 py-1 rounded-full border border-slate-700">
+                        ด่าน 1
+                    </span>
+                </div>
+
+                <p id="missionDesc" class="text-xs sm:text-sm text-slate-200 mb-3 leading-relaxed">
+                    กำลังโหลดภารกิจ...
+                </p>
+
+                <!-- Objectives Checklist -->
+                <div class="space-y-2 bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">เงื่อนไขภารกิจที่ต้องทำ:</div>
+                    <div id="objectivesList" class="space-y-1.5">
+                        <!-- Dynamic Objectives Checklist Injected Here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- APPLIANCES SELECTION CARDS -->
+            <div class="glass-panel rounded-3xl p-4 sm:p-5 border-cyan-500/30 flex-1 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs sm:text-sm font-bold text-cyan-300 flex items-center gap-2">
+                            <i class="fa-solid fa-plug text-cyan-400"></i> เลือกเปิดเครื่องใช้ไฟฟ้า (TOGGLE APPLIANCES)
+                        </h3>
+                        <span class="text-[10px] text-slate-400">แตะเพื่อเปิด/ปิด</span>
+                    </div>
+
+                    <!-- Grid of 5 Main Appliances -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        
+                        <!-- Light Bulb (5 Energy) -->
+                        <div id="card-light" onclick="toggleAppliance('light')" class="appliance-card glass-card p-3 rounded-2xl border flex items-center justify-between cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-100">หลอดไฟ (Light)</div>
+                                    <div class="text-[10px] text-amber-400 font-bold font-orbitron">⚡ 5 Energy</div>
+                                </div>
+                            </div>
+                            <div id="switch-light" class="w-10 h-6 rounded-full bg-slate-800 p-1 flex items-center transition-colors">
+                                <div id="dot-light" class="w-4 h-4 rounded-full bg-slate-400 transform transition-transform"></div>
+                            </div>
+                        </div>
+
+                        <!-- Fan (10 Energy) -->
+                        <div id="card-fan" onclick="toggleAppliance('fan')" class="appliance-card glass-card p-3 rounded-2xl border flex items-center justify-between cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-fan"></i>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-100">พัดลม (Fan)</div>
+                                    <div class="text-[10px] text-teal-400 font-bold font-orbitron">⚡ 10 Energy</div>
+                                </div>
+                            </div>
+                            <div id="switch-fan" class="w-10 h-6 rounded-full bg-slate-800 p-1 flex items-center transition-colors">
+                                <div id="dot-fan" class="w-4 h-4 rounded-full bg-slate-400 transform transition-transform"></div>
+                            </div>
+                        </div>
+
+                        <!-- TV (15 Energy) -->
+                        <div id="card-tv" onclick="toggleAppliance('tv')" class="appliance-card glass-card p-3 rounded-2xl border flex items-center justify-between cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-tv"></i>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-100">โทรทัศน์ (TV)</div>
+                                    <div class="text-[10px] text-indigo-400 font-bold font-orbitron">⚡ 15 Energy</div>
+                                </div>
+                            </div>
+                            <div id="switch-tv" class="w-10 h-6 rounded-full bg-slate-800 p-1 flex items-center transition-colors">
+                                <div id="dot-tv" class="w-4 h-4 rounded-full bg-slate-400 transform transition-transform"></div>
+                            </div>
+                        </div>
+
+                        <!-- Computer (20 Energy) -->
+                        <div id="card-computer" onclick="toggleAppliance('computer')" class="appliance-card glass-card p-3 rounded-2xl border flex items-center justify-between cursor-pointer">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-desktop"></i>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-100">คอมพิวเตอร์ (Computer)</div>
+                                    <div class="text-[10px] text-cyan-400 font-bold font-orbitron">⚡ 20 Energy</div>
+                                </div>
+                            </div>
+                            <div id="switch-computer" class="w-10 h-6 rounded-full bg-slate-800 p-1 flex items-center transition-colors">
+                                <div id="dot-computer" class="w-4 h-4 rounded-full bg-slate-400 transform transition-transform"></div>
+                            </div>
+                        </div>
+
+                        <!-- Air Conditioner (40 Energy) -->
+                        <div id="card-ac" onclick="toggleAppliance('ac')" class="appliance-card glass-card p-3 rounded-2xl border flex items-center justify-between cursor-pointer sm:col-span-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-snowflake"></i>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-100">เครื่องปรับอากาศ (Air Conditioner)</div>
+                                    <div class="text-[10px] text-blue-400 font-bold font-orbitron">⚡ 40 Energy</div>
+                                </div>
+                            </div>
+                            <div id="switch-ac" class="w-10 h-6 rounded-full bg-slate-800 p-1 flex items-center transition-colors">
+                                <div id="dot-ac" class="w-4 h-4 rounded-full bg-slate-400 transform transition-transform"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button id="btnSubmit" onclick="submitMission()" class="w-full mt-4 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 hover:from-emerald-400 hover:to-cyan-300 text-slate-950 font-black text-base shadow-lg shadow-emerald-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-98 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-circle-check text-lg"></i> ส่งผลงาน (SUBMIT MISSION)
+                </button>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- START / INSTRUCTIONS MODAL -->
+    <div id="modalStart" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-emerald-500/40 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-400 to-cyan-400 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-4xl text-emerald-400">
+                    <i class="fa-solid fa-bolt animate-pulse"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 font-orbitron mb-2">
+                ENERGY MANAGER
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 mb-5 leading-relaxed bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
+                ยินดีต้อนรับสู่ผู้จัดการพลังงาน! ภารกิจของคุณคือการเลือกเปิดเครื่องใช้ไฟฟ้าให้ครบถ้วนตามเงื่อนไข แต่ต้องใช้พลังงานรวมไม่เกินโควต้าที่กำหนด
+            </p>
+
+            <div class="space-y-2 text-xs text-slate-300 text-left mb-6 bg-slate-950/80 p-3.5 rounded-2xl border border-emerald-500/30">
+                <div class="font-bold text-emerald-400 text-center mb-1">⚡ ตารางการใช้พลังงาน (ENERGY RATES):</div>
+                <div class="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>• หลอดไฟ (Light): <b class="text-amber-400">5</b></div>
+                    <div>• พัดลม (Fan): <b class="text-teal-400">10</b></div>
+                    <div>• ทีวี (TV): <b class="text-indigo-400">15</b></div>
+                    <div>• คอมพิวเตอร์ (PC): <b class="text-cyan-400">20</b></div>
+                    <div class="col-span-2">• เครื่องปรับอากาศ (AC): <b class="text-blue-400">40</b></div>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 hover:from-emerald-400 hover:to-cyan-300 text-slate-950 font-black text-lg shadow-lg shadow-emerald-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                START GAME <i class="fa-solid fa-play ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- LEVEL SUCCESS MODAL -->
+    <div id="modalSuccess" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-6 sm:p-8 border-2 border-emerald-500/50 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-300 to-cyan-400 p-0.5 mx-auto mb-3 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-4xl text-emerald-400">
+                    <i class="fa-solid fa-circle-check text-emerald-400 animate-bounce"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300 font-orbitron mb-1">
+                MISSION COMPLETED!
+            </h2>
+            <p class="text-xs text-slate-300 mb-3">คุณทำภารกิจสำเร็จลุล่วงด้วยการบริหารพลังงานยอดเยี่ยม!</p>
+
+            <!-- Star Rating Display -->
+            <div id="starContainer" class="flex justify-center gap-3 text-3xl my-3 text-amber-400">
+                <!-- Stars Injected by JS -->
+            </div>
+
+            <!-- Energy Consumption Summary Box -->
+            <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-2 mb-4 text-xs sm:text-sm">
+                <div class="flex justify-between items-center text-slate-300">
+                    <span>พลังงานที่ใช้ไป (Energy Used):</span>
+                    <span id="resEnergyUsed" class="font-bold text-amber-400 font-orbitron text-base">0</span>
+                </div>
+                <div class="flex justify-between items-center text-slate-300">
+                    <span>พลังงานคงเหลือ (Energy Remaining):</span>
+                    <span id="resEnergyRemaining" class="font-bold text-emerald-400 font-orbitron text-base">0</span>
+                </div>
+                <div class="flex justify-between items-center border-t border-slate-800 pt-2 text-slate-300">
+                    <span>คะแนนที่ได้รับ (Score Earned):</span>
+                    <span id="resScoreEarned" class="font-bold text-cyan-400 font-orbitron text-base">+100</span>
+                </div>
+            </div>
+
+            <!-- Energy Saving Tip Box -->
+            <div class="bg-emerald-950/40 rounded-2xl p-3.5 border border-emerald-500/30 text-left mb-6">
+                <div class="text-xs font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lightbulb text-yellow-400"></i> คำแนะนำการประหยัดพลังงาน:
+                </div>
+                <div id="resSavingTip" class="text-xs text-slate-200 leading-relaxed">
+                    คำแนะนำ...
+                </div>
+            </div>
+
+            <button onclick="nextLevel()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 hover:from-emerald-400 hover:to-cyan-300 text-slate-950 font-black text-lg shadow-lg shadow-emerald-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                NEXT LEVEL <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- LEVEL FAIL MODAL -->
+    <div id="modalFail" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-rose-500/50 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-rose-500 to-red-600 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-4xl text-rose-500">
+                    <i class="fa-solid fa-triangle-exclamation animate-pulse"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-rose-400 font-orbitron mb-2">
+                MISSION FAILED!
+            </h2>
+            <p id="failReasonText" class="text-xs sm:text-sm text-slate-300 mb-5 leading-relaxed bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
+                คุณใช้พลังงานเกินกำหนด หรือทำเงื่อนไขภารกิจไม่ครบถ้วน!
+            </p>
+
+            <button onclick="retryLevel()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 font-black text-lg shadow-lg shadow-rose-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                TRY AGAIN <i class="fa-solid fa-rotate-left ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- LEVEL SELECT MODAL -->
+    <div id="modalLevelSelect" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-6 border-2 border-cyan-500/40 text-center relative overflow-hidden shadow-2xl">
+            <button onclick="closeLevelSelect()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h3 class="text-xl font-black text-amber-400 font-orbitron mb-4">เลือกด่าน (SELECT LEVEL)</h3>
+
+            <!-- Grid of 10 Levels -->
+            <div id="levelGrid" class="grid grid-cols-5 gap-3 mb-6">
+                <!-- Level buttons generated by JS -->
+            </div>
+
+            <button onclick="closeLevelSelect()" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs font-orbitron cursor-pointer">
+                ปิด (CLOSE)
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="w-full max-w-6xl mx-auto p-3 text-center text-[11px] text-slate-500 font-medium z-10">
+        Energy Manager &copy; 2026 - เกมเรียนรู้การอนุรักษ์และประหยัดพลังงานไฟฟ้า HTML5
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. WEB AUDIO SYNTHESIZER
+           ========================================================================== */
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playToggleSound(isOn) {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(isOn ? 523.25 : 349.23, now); // C5 or F4
+                osc.frequency.exponentialRampToValueAtTime(isOn ? 659.25 : 261.63, now + 0.08);
+
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            playErrorSound() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playSuccessFanfare() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C
+
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.09);
+
+                    gain.gain.setValueAtTime(0.12, now + i * 0.09);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.09);
+                    osc.stop(now + i * 0.09 + 0.35);
+                });
+            }
+        }
+
+        const sound = new AudioEngine();
+
+        function toggleSound() {
+            sound.muted = !sound.muted;
+            const icon = document.getElementById('iconSound');
+            icon.className = sound.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high text-cyan-400';
+        }
+
+        /* ==========================================================================
+           2. APPLIANCES & LEVELS DATA DEFINITION
+           ========================================================================== */
+        const APPLIANCES = {
+            light:    { name: 'หลอดไฟ', energy: 5, icon: 'fa-lightbulb' },
+            fan:      { name: 'พัดลม', energy: 10, icon: 'fa-fan' },
+            tv:       { name: 'โทรทัศน์', energy: 15, icon: 'fa-tv' },
+            computer: { name: 'คอมพิวเตอร์', energy: 20, icon: 'fa-desktop' },
+            ac:       { name: 'เครื่องปรับอากาศ', energy: 40, icon: 'fa-snowflake' }
+        };
+
+        const LEVELS = [
+            {
+                id: 1,
+                title: 'ทำการบ้านยามค่ำคืน',
+                desc: 'คุณต้องอ่านหนังสือทำการบ้านยามค่ำคืน ต้องการแสงสว่างจากหลอดไฟ และต้องใช้คอมพิวเตอร์ค้นหาข้อมูล โดยใช้พลังงานประหยัดที่สุด',
+                limit: 30,
+                required: ['light', 'computer'],
+                tip: 'การเลือกใช้หลอดไฟ LED ร่วมกับคอมพิวเตอร์ ช่วยประหยัดไฟได้มากกว่าหลอดไส้แบบเดิมถึง 80%'
+            },
+            {
+                id: 2,
+                title: 'ทำงานในวันอากาศอบอ้าว',
+                desc: 'ต้องทำงานส่งครูด้วยคอมพิวเตอร์ ต้องการแสงสว่าง และต้องการคลายร้อนด้วยอุปกรณ์ความเย็นที่ไม่เปลืองไฟ',
+                limit: 40,
+                required: ['light', 'computer', 'cooling'], // cooling = fan OR ac
+                tip: 'การเปิดพัดลมแทนเครื่องปรับอากาศในวันอากาศปกติ กินไฟเพียง 10W ประหยัดพลังงานได้มากกว่าแอร์ถึง 4 เท่า!'
+            },
+            {
+                id: 3,
+                title: 'พักผ่อนดูทีวียามค่ำ',
+                desc: 'พักผ่อนดูรายการโปรดบน TV ในห้องที่มีแสงสว่างเพียงพอ พร้อมลมเย็นสบายในงบพลังงานจำกัด',
+                limit: 35,
+                required: ['light', 'tv', 'cooling'],
+                tip: 'ควรปิดโทรทัศน์เมื่อไม่มีคนดู และถอดปลั๊กออกทุกครั้งเพื่อป้องกันการเสียพลังงานในโหมด Standby'
+            },
+            {
+                id: 4,
+                title: 'ทำงานวันร้อนจัด (38°C)',
+                desc: 'วันนี้อากาศร้อนจัดมากถึง 38°C พัดลมเอาไม่อยู่! ต้องเปิดเครื่องปรับอากาศ (AC) + คอมพิวเตอร์ + หลอดไฟ',
+                limit: 70,
+                required: ['light', 'computer', 'ac'],
+                tip: 'การตั้งอุณหภูมิแอร์ที่ 26°C ช่วยประหยัดไฟได้ 10% ทุกๆ อุณหภูมิที่เพิ่มขึ้น 1 องศา'
+            },
+            {
+                id: 5,
+                title: 'มัลติมีเดียความบันเทิง',
+                desc: 'คุณต้องการเปิดอุปกรณ์ความบันเทิงทั้ง TV และ Computer พร้อมกันในห้องที่มีแสงสว่าง',
+                limit: 45,
+                required: ['light', 'tv', 'computer'],
+                tip: 'หลีกเลี่ยงการเปิดอุปกรณ์ความบันเทิงทิ้งไว้พร้อมกันหลายเครื่องหากไม่ได้ใช้งานจริง'
+            },
+            {
+                id: 6,
+                title: 'ทำงานด่วนในห้องแอร์',
+                desc: 'มีงานด่วนต้องรีบทำด้วย Computer ในห้องแอร์เย็นสบายยามค่ำคืน ให้สว่างไสว',
+                limit: 68,
+                required: ['light', 'computer', 'ac'],
+                tip: 'การหมั่นล้างแผ่นกรองอากาศของเครื่องปรับอากาศทุก 2 สัปดาห์ ช่วยให้แอร์เย็นเร็วและประหยัดไฟ'
+            },
+            {
+                id: 7,
+                title: 'วันหยุดพักผ่อนสุดประหยัด',
+                desc: 'พักผ่อนวันหยุดด้วย TV หรือ Computer ในห้องที่มีแสงสว่าง และมีลมเย็นสดชื่น โดยใช้ Energy รวมไม่เกิน 32',
+                limit: 32,
+                required: ['light', 'entertainment', 'cooling'], // entertainment = tv or computer
+                tip: 'การใช้แสงธรรมชาติในช่วงกลางวันช่วยลดการเปิดหลอดไฟได้มาก'
+            },
+            {
+                id: 8,
+                title: 'มหกรรมความบันเทิงคลายร้อน',
+                desc: 'จัดกิจกรรมดูทีวีและเล่นคอมพิวเตอร์ร่วมกันกับเพื่อน พร้อมเปิดพัดลมคลายร้อน และแสงสว่าง',
+                limit: 55,
+                required: ['light', 'tv', 'computer', 'fan'],
+                tip: 'เลือกเครื่องใช้ไฟฟ้าที่มีฉลากประหยัดไฟเบอร์ 5 ช่วยลดค่าไฟฟ้าในระยะยาวได้อย่างมหาศาล'
+            },
+            {
+                id: 9,
+                title: 'ห้องทำงานเย็นฉ่ำครบครัน',
+                desc: 'ต้องการสภาพแวดล้อมการทำงานที่ดีที่สุด: หลอดไฟ + คอมพิวเตอร์ + พัดลมช่วยกระจายลม + แอร์เย็นฉ่ำ',
+                limit: 80,
+                required: ['light', 'computer', 'fan', 'ac'],
+                tip: 'การเปิดพัดลมควบคู่กับแอร์ช่วยหมุนเวียนอากาศเย็นให้ทั่วห้องโดยไม่ต้องปรับแอร์ให้เย็นจัด'
+            },
+            {
+                id: 10,
+                title: 'Energy Master: สมดุลพลังงานขั้นสุด',
+                desc: 'ท้าทายความสามารถ! เปิดใช้อุปกรณ์ครบทั้ง 5 ชนิด (Light, Fan, TV, Computer, AC) โดยไม่เกินขีดจำกัดพลังงาน 90 Energy',
+                limit: 92,
+                required: ['light', 'fan', 'tv', 'computer', 'ac'],
+                tip: 'ยินดีด้วย! คุณคือสุดยอด Energy Master ผู้เชี่ยวชาญการบริหารจัดการพลังงานไฟฟ้าตัวจริง!'
+            }
+        ];
+
+        /* ==========================================================================
+           3. GAME STATE & DOM MANAGERS
+           ========================================================================== */
+        let currentLevelIndex = 0; // 0 to 9
+        let totalScore = 0;
+        let selectedState = {
+            light: false,
+            fan: false,
+            tv: false,
+            computer: false,
+            ac: false
+        };
+        let levelStarsEarned = Array(10).fill(0);
+
+        function startGame() {
+            document.getElementById('modalStart').classList.add('hidden');
+            loadLevel(0);
+        }
+
+        function loadLevel(index) {
+            currentLevelIndex = index;
+            const level = LEVELS[currentLevelIndex];
+
+            // Reset toggles
+            selectedState = { light: false, fan: false, tv: false, computer: false, ac: false };
+
+            // Update HUD
+            document.getElementById('hudLevel').innerText = `${level.id}/10`;
+            document.getElementById('levelTitleBadge').innerText = `ด่าน ${level.id}`;
+            document.getElementById('missionDesc').innerText = level.desc;
+            document.getElementById('energyLimitText').innerText = level.limit;
+
+            // Render UI
+            updateApplianceCardsUI();
+            updateRoomVisuals();
+            updateEnergyMeter();
+            renderObjectivesChecklist();
+        }
+
+        function toggleAppliance(key) {
+            selectedState[key] = !selectedState[key];
+            sound.playToggleSound(selectedState[key]);
+
+            updateApplianceCardsUI();
+            updateRoomVisuals();
+            updateEnergyMeter();
+            renderObjectivesChecklist();
+        }
+
+        function calculateCurrentEnergy() {
+            let total = 0;
+            for (const key in selectedState) {
+                if (selectedState[key]) {
+                    total += APPLIANCES[key].energy;
+                }
+            }
+            return total;
+        }
+
+        function updateEnergyMeter() {
+            const used = calculateCurrentEnergy();
+            const limit = LEVELS[currentLevelIndex].limit;
+            const percent = Math.min(100, Math.round((used / limit) * 100));
+
+            const bar = document.getElementById('energyBar');
+            const usedText = document.getElementById('energyUsedText');
+            const statusText = document.getElementById('energyStatusText');
+            const remText = document.getElementById('energyRemainingText');
+            const container = document.getElementById('meterContainer');
+
+            usedText.innerText = used;
+            remText.innerText = `คงเหลือ: ${Math.max(0, limit - used)}`;
+            bar.style.width = `${percent}%`;
+
+            if (used > limit) {
+                bar.className = 'energy-progress h-full rounded-full bg-rose-500 w-0';
+                statusText.innerText = '⚠️ พลังงานเกินโควต้ากำหนด!';
+                statusText.className = 'text-rose-400 font-bold animate-pulse';
+                container.classList.add('shake-limit');
+                setTimeout(() => container.classList.remove('shake-limit'), 400);
+            } else if (used === limit) {
+                bar.className = 'energy-progress h-full rounded-full bg-amber-400 w-0';
+                statusText.innerText = '⚡ ใช้พลังงานเต็มขีดจำกัดพอดี';
+                statusText.className = 'text-amber-400 font-bold';
+            } else {
+                bar.className = 'energy-progress h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 w-0';
+                statusText.innerText = 'พลังงานอยู่ในเกณฑ์ปกติ';
+                statusText.className = 'text-emerald-400 font-medium';
+            }
+        }
+
+        function updateApplianceCardsUI() {
+            for (const key in selectedState) {
+                const card = document.getElementById(`card-${key}`);
+                const sw = document.getElementById(`switch-${key}`);
+                const dot = document.getElementById(`dot-${key}`);
+
+                if (selectedState[key]) {
+                    card.classList.add('active-on');
+                    sw.classList.replace('bg-slate-800', 'bg-emerald-500');
+                    dot.classList.add('translate-x-4', 'bg-slate-950');
+                    dot.classList.remove('bg-slate-400');
+                } else {
+                    card.classList.remove('active-on');
+                    sw.classList.replace('bg-emerald-500', 'bg-slate-800');
+                    dot.classList.remove('translate-x-4', 'bg-slate-950');
+                    dot.classList.add('bg-slate-400');
+                }
+            }
+        }
+
+        function updateRoomVisuals() {
+            const roomBg = document.getElementById('roomBg');
+            const lampBulb = document.getElementById('lampBulb');
+            const fanBlades = document.getElementById('fanBlades');
+            const fanHead = document.getElementById('fanHead');
+            const pcScreen = document.getElementById('pcScreen');
+            const pcContent = document.getElementById('pcContent');
+            const tvScreen = document.getElementById('tvScreen');
+            const tvContent = document.getElementById('tvContent');
+            const acLed = document.getElementById('acLed');
+            const acWind = document.getElementById('acWind');
+
+            // Light
+            if (selectedState.light) {
+                roomBg.className = 'room-bg lit absolute inset-0 rounded-3xl transition-all duration-500 pointer-events-none';
+                lampBulb.classList.add('on');
+                lampBulb.classList.replace('bg-slate-700', 'bg-yellow-400');
+            } else {
+                roomBg.className = 'room-bg dark absolute inset-0 rounded-3xl transition-all duration-500 pointer-events-none';
+                lampBulb.classList.remove('on');
+                lampBulb.classList.replace('bg-yellow-400', 'bg-slate-700');
+            }
+
+            // Fan
+            if (selectedState.fan) {
+                fanBlades.classList.add('spinning', 'text-teal-400');
+                fanHead.classList.add('border-teal-400');
+            } else {
+                fanBlades.classList.remove('spinning', 'text-teal-400');
+                fanHead.classList.remove('border-teal-400');
+            }
+
+            // PC
+            if (selectedState.computer) {
+                pcScreen.classList.add('on', 'border-cyan-400');
+                pcContent.classList.remove('hidden');
+            } else {
+                pcScreen.classList.remove('on', 'border-cyan-400');
+                pcContent.classList.add('hidden');
+            }
+
+            // TV
+            if (selectedState.tv) {
+                tvScreen.classList.add('on', 'border-indigo-400');
+                tvContent.classList.remove('hidden');
+            } else {
+                tvScreen.classList.remove('on', 'border-indigo-400');
+                tvContent.classList.add('hidden');
+            }
+
+            // AC
+            if (selectedState.ac) {
+                acLed.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-pulse';
+                acWind.classList.add('active');
+            } else {
+                acLed.className = 'w-2 h-2 rounded-full bg-slate-400';
+                acWind.classList.remove('active');
+            }
+        }
+
+        function renderObjectivesChecklist() {
+            const level = LEVELS[currentLevelIndex];
+            const container = document.getElementById('objectivesList');
+            container.innerHTML = '';
+
+            level.required.forEach(reqKey => {
+                let isMet = false;
+                let labelText = '';
+
+                if (reqKey === 'cooling') {
+                    isMet = selectedState.fan || selectedState.ac;
+                    labelText = 'ต้องการความเย็น (พัดลม หรือ แอร์)';
+                } else if (reqKey === 'entertainment') {
+                    isMet = selectedState.tv || selectedState.computer;
+                    labelText = 'ต้องการความบันเทิง (ทีวี หรือ คอมพิวเตอร์)';
+                } else {
+                    isMet = selectedState[reqKey];
+                    labelText = `เปิด ${APPLIANCES[reqKey].name} (${APPLIANCES[reqKey].energy} Energy)`;
+                }
+
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-2 text-xs font-medium';
+                item.innerHTML = `
+                    <i class="${isMet ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-regular fa-circle text-slate-500'}"></i>
+                    <span class="${isMet ? 'text-emerald-300 font-bold' : 'text-slate-400'}">${labelText}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function checkMissionSuccess() {
+            const level = LEVELS[currentLevelIndex];
+            const usedEnergy = calculateCurrentEnergy();
+
+            // 1. Check Energy Limit
+            if (usedEnergy > level.limit) {
+                return { success: false, reason: `ใช้พลังงานไป ${usedEnergy} Energy เกินขีดจำกัด ${level.limit} Energy!` };
+            }
+
+            // 2. Check Required Objectives
+            for (const reqKey of level.required) {
+                if (reqKey === 'cooling') {
+                    if (!selectedState.fan && !selectedState.ac) {
+                        return { success: false, reason: 'ภารกิจล้มเหลว: ยังไม่ได้เปิดอุปกรณ์ทำความเย็น (พัดลม หรือ แอร์)' };
+                    }
+                } else if (reqKey === 'entertainment') {
+                    if (!selectedState.tv && !selectedState.computer) {
+                        return { success: false, reason: 'ภารกิจล้มเหลว: ยังไม่ได้เปิดอุปกรณ์ความบันเทิง (TV หรือ คอมพิวเตอร์)' };
+                    }
+                } else {
+                    if (!selectedState[reqKey]) {
+                        return { success: false, reason: `ภารกิจล้มเหลว: ยังไม่ได้เปิด ${APPLIANCES[reqKey].name}` };
+                    }
+                }
+            }
+
+            return { success: true };
+        }
+
+        function submitMission() {
+            const result = checkMissionSuccess();
+
+            if (result.success) {
+                // SUCCESS
+                sound.playSuccessFanfare();
+
+                const used = calculateCurrentEnergy();
+                const limit = LEVELS[currentLevelIndex].limit;
+                const remaining = limit - used;
+
+                // Calculate Stars (1-3)
+                // 3 Stars: Remaining Energy >= 10% of Limit or perfect optimal
+                // 2 Stars: Remaining Energy >= 0
+                // 1 Star: Just met limit
+                let stars = 1;
+                if (remaining >= limit * 0.15) {
+                    stars = 3;
+                } else if (remaining >= limit * 0.05) {
+                    stars = 2;
+                } else {
+                    stars = 1;
+                }
+
+                // Award score
+                const pointsEarned = (stars * 100) + (remaining * 10);
+                totalScore += pointsEarned;
+                levelStarsEarned[currentLevelIndex] = Math.max(levelStarsEarned[currentLevelIndex], stars);
+
+                document.getElementById('hudScore').innerText = totalScore;
+
+                // Show Success Modal
+                renderStarsUI(stars);
+                document.getElementById('resEnergyUsed').innerText = used;
+                document.getElementById('resEnergyRemaining').innerText = remaining;
+                document.getElementById('resScoreEarned').innerText = `+${pointsEarned}`;
+                document.getElementById('resSavingTip').innerText = LEVELS[currentLevelIndex].tip;
+
+                document.getElementById('modalSuccess').classList.remove('hidden');
+
+            } else {
+                // FAIL
+                sound.playErrorSound();
+                document.getElementById('failReasonText').innerText = result.reason;
+                document.getElementById('modalFail').classList.remove('hidden');
+            }
+        }
+
+        function renderStarsUI(count) {
+            const container = document.getElementById('starContainer');
+            container.innerHTML = '';
+
+            for (let i = 1; i <= 3; i++) {
+                const star = document.createElement('i');
+                if (i <= count) {
+                    star.className = 'fa-solid fa-star text-amber-400 drop-shadow-md animate-bounce';
+                    star.style.animationDelay = `${i * 0.15}s`;
+                } else {
+                    star.className = 'fa-regular fa-star text-slate-600';
+                }
+                container.appendChild(star);
+            }
+        }
+
+        function retryLevel() {
+            document.getElementById('modalFail').classList.add('hidden');
+            loadLevel(currentLevelIndex);
+        }
+
+        function nextLevel() {
+            document.getElementById('modalSuccess').classList.add('hidden');
+            if (currentLevelIndex < 9) {
+                loadLevel(currentLevelIndex + 1);
+            } else {
+                // Game Completed! Return to Level 1
+                alert('🎉 ยินดีด้วย! คุณผ่านด่านครบทั้ง 10 ด่านเรียบร้อยแล้ว!');
+                loadLevel(0);
+            }
+        }
+
+        /* ==========================================================================
+           4. LEVEL SELECT MODAL
+           ========================================================================== */
+        function openLevelSelect() {
+            const grid = document.getElementById('levelGrid');
+            grid.innerHTML = '';
+
+            LEVELS.forEach((lvl, idx) => {
+                const btn = document.createElement('button');
+                const stars = levelStarsEarned[idx];
+
+                btn.className = `p-3 rounded-2xl border flex flex-col items-center justify-center gap-1 transition cursor-pointer ${
+                    idx === currentLevelIndex
+                        ? 'bg-emerald-950 border-emerald-400 text-emerald-300 font-bold'
+                        : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-600'
+                }`;
+
+                btn.onclick = () => {
+                    closeLevelSelect();
+                    loadLevel(idx);
+                };
+
+                let starsHtml = '';
+                if (stars > 0) {
+                    starsHtml = '<div class="text-[10px] text-amber-400">' + '<i class="fa-solid fa-star"></i>'.repeat(stars) + '</div>';
+                } else {
+                    starsHtml = '<div class="text-[10px] text-slate-600">--</div>';
+                }
+
+                btn.innerHTML = `
+                    <span class="text-xs font-black font-orbitron">L${lvl.id}</span>
+                    ${starsHtml}
+                `;
+
+                grid.appendChild(btn);
+            });
+
+            document.getElementById('modalLevelSelect').classList.remove('hidden');
+        }
+
+        function closeLevelSelect() {
+            document.getElementById('modalLevelSelect').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

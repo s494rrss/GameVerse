@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MATH RACER - 2D Math Racing Game</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Prompt:wght@400;600;700;900&family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --neon-cyan: #06b6d4;
+            --neon-amber: #f59e0b;
+            --neon-red: #ef4444;
+            --neon-green: #10b981;
+            --neon-purple: #a855f7;
+        }
+
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #030712;
+            color: #f9fafb;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            overflow: hidden;
+            min-height: 100vh;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .font-fredoka {
+            font-family: 'Fredoka', cursive, sans-serif;
+        }
+
+        /* Glassmorphic Cyber Panels */
+        .cyber-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(6, 182, 212, 0.15);
+        }
+
+        .cyber-panel-amber {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 25px rgba(245, 158, 11, 0.2);
+        }
+
+        /* Turbo Boost Neon Pulse */
+        @keyframes turboGlow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(245, 158, 11, 0.6), inset 0 0 15px rgba(245, 158, 11, 0.4);
+                border-color: #f59e0b;
+            }
+            50% {
+                box-shadow: 0 0 45px rgba(239, 68, 68, 0.9), inset 0 0 25px rgba(239, 68, 68, 0.6);
+                border-color: #ef4444;
+            }
+        }
+
+        .turbo-active {
+            animation: turboGlow 0.4s infinite alternate;
+        }
+
+        /* Choice Card Button Animations */
+        .option-btn {
+            transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .option-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
+        }
+
+        .option-btn:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        /* Custom Speedometer Arc */
+        .speed-gauge {
+            transition: stroke-dashoffset 0.2s ease-out;
+        }
+
+        /* Nitro Screen Shake Effect */
+        .shake {
+            animation: shakeAnim 0.1s infinite;
+        }
+
+        @keyframes shakeAnim {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-2px, 0px) rotate(-0.5deg); }
+            40% { transform: translate(2px, -1px) rotate(0.5deg); }
+            60% { transform: translate(-1px, 2px) rotate(0deg); }
+            80% { transform: translate(2px, 1px) rotate(-0.5deg); }
+            100% { transform: translate(-1px, -2px) rotate(0.5deg); }
+        }
+    </style>
+</head>
+<body class="relative flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white overflow-hidden">
+
+    <!-- GAME CANVAS CONTAINER -->
+    <div id="gameContainer" class="relative w-full max-w-4xl h-[100vh] max-h-[850px] flex flex-col justify-between p-2 sm:p-4 overflow-hidden shadow-2xl rounded-none sm:rounded-3xl border-0 sm:border-2 border-cyan-500/30">
+        
+        <!-- CANVAS BACKGROUND (ROAD & RACERS) -->
+        <canvas id="raceCanvas" class="absolute inset-0 w-full h-full block z-0"></canvas>
+
+        <!-- TOP HUD BAR -->
+        <header class="relative z-10 w-full flex items-center justify-between gap-2 cyber-panel rounded-2xl p-2.5 sm:p-3.5">
+            <!-- Left: Lap & Speedometer Info -->
+            <div class="flex items-center gap-3">
+                <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-cyan-500/40 flex flex-col items-center">
+                    <span class="text-[9px] font-bold text-slate-400 tracking-widest uppercase">LAP</span>
+                    <span id="hudLap" class="text-sm sm:text-lg font-black text-cyan-400 font-orbitron">1 / 3</span>
+                </div>
+
+                <div class="hidden sm:flex flex-col">
+                    <span id="hudLevelName" class="text-xs font-bold text-amber-400 font-fredoka">LEVEL 1: บวก & ลบ</span>
+                    <span id="hudDistance" class="text-[11px] text-slate-300 font-mono">ระยะทาง: 0m</span>
+                </div>
+            </div>
+
+            <!-- Center: Speedometer & Turbo Status -->
+            <div class="flex items-center gap-3">
+                <div class="flex flex-col items-center">
+                    <div class="flex items-baseline gap-1">
+                        <span id="hudSpeed" class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-red-500 font-orbitron">0</span>
+                        <span class="text-[10px] font-bold text-amber-400 font-orbitron">KM/H</span>
+                    </div>
+                    <!-- Speed Bar -->
+                    <div class="w-24 sm:w-32 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700 mt-0.5">
+                        <div id="speedBar" class="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-red-500 w-0 transition-all duration-150"></div>
+                    </div>
+                </div>
+
+                <!-- Combo & Boost Counter -->
+                <div id="boostContainer" class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-amber-500/40 flex flex-col items-center min-w-[70px]">
+                    <span class="text-[9px] font-bold text-slate-400 tracking-widest uppercase">COMBO</span>
+                    <span id="hudCombo" class="text-sm sm:text-lg font-black text-amber-400 font-orbitron">0 🔥</span>
+                </div>
+            </div>
+
+            <!-- Right: Timer, Score & Audio Toggle -->
+            <div class="flex items-center gap-2">
+                <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-purple-500/40 flex flex-col items-center min-w-[65px]">
+                    <span class="text-[9px] font-bold text-slate-400 tracking-widest uppercase">TIME</span>
+                    <span id="hudTimer" class="text-xs sm:text-sm font-black text-purple-300 font-orbitron">00:00</span>
+                </div>
+
+                <div class="hidden md:flex flex-col text-right pr-1">
+                    <span class="text-[9px] font-bold text-slate-400 tracking-widest">SCORE</span>
+                    <span id="hudScore" class="text-sm font-black text-emerald-400 font-orbitron">0</span>
+                </div>
+
+                <button id="btnAudio" onclick="toggleAudio()" class="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 transition cursor-pointer">
+                    <i id="audioIcon" class="fa-solid fa-volume-high text-xs sm:text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- TURBO BOOST NOTIFICATION BANNER -->
+        <div id="turboBanner" class="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-0 scale-50 transition-all duration-300 flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-amber-500 via-red-600 to-amber-500 text-slate-950 font-black text-base sm:text-xl font-orbitron shadow-2xl shadow-red-500/80 border-2 border-yellow-300">
+            <i class="fa-solid fa-bolt text-yellow-200 animate-bounce"></i>
+            <span>TURBO BOOST ACTIVATED! 300+ KM/H!</span>
+            <i class="fa-solid fa-fire text-yellow-200 animate-bounce"></i>
+        </div>
+
+        <!-- MATH QUESTION HUD CARD -->
+        <section id="questionCard" class="relative z-10 w-full cyber-panel-amber rounded-3xl p-3 sm:p-5 mt-auto border-2 border-amber-500/50 shadow-2xl transition-all">
+            
+            <!-- Question Header & Timer Line -->
+            <div class="flex items-center justify-between mb-2 sm:mb-3">
+                <span id="questionBadge" class="text-[10px] sm:text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/40 flex items-center gap-1.5">
+                    <i class="fa-solid fa-brain"></i> LEVEL 1: ตอบโจทย์คณิตเพื่อเร่งความเร็ว!
+                </span>
+
+                <span id="streakIndicator" class="text-xs font-bold text-amber-400 font-fredoka flex items-center gap-1">
+                    ตอบถูกอีก <span id="comboRemaining" class="text-white font-bold underline">3</span> ข้อเพื่อปลดล็อก TURBO BOOST!
+                </span>
+            </div>
+
+            <!-- MATH QUESTION DISPLAY -->
+            <div class="w-full bg-slate-950/90 rounded-2xl p-3 sm:p-4 border border-amber-500/30 text-center mb-3 sm:mb-4 shadow-inner relative overflow-hidden">
+                <div id="mathQuestionText" class="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 font-orbitron tracking-wider">
+                    12 + 8 = ?
+                </div>
+            </div>
+
+            <!-- 4 MULTIPLE CHOICE BUTTONS GRID -->
+            <div id="optionsGrid" class="grid grid-cols-2 gap-2 sm:gap-3">
+                <!-- Dynamically injected via JS -->
+            </div>
+        </section>
+
+    </div>
+
+    <!-- START / MAIN MENU MODAL -->
+    <div id="modalStart" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="cyber-panel w-full max-w-lg rounded-3xl p-6 sm:p-8 border-2 border-cyan-500/50 text-center relative shadow-2xl">
+            
+            <!-- Title Logo -->
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyan-500 via-amber-500 to-red-500 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center text-3xl text-cyan-400">
+                    <i class="fa-solid fa-flag-checkered animate-pulse"></i>
+                </div>
+            </div>
+
+            <h1 class="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-amber-400 to-red-500 font-orbitron tracking-widest mb-1">
+                MATH RACER
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-300 font-medium mb-6">
+                ตอบคำถามคณิตศาสตร์เพื่อซิ่งแซงคู่แข่ง ชิงถ้วยแชมป์โลก 3 LAPS!
+            </p>
+
+            <!-- Rules & Features List -->
+            <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 text-left text-xs text-slate-300 space-y-2 mb-6">
+                <div class="flex items-center gap-2 text-cyan-400 font-bold">
+                    <i class="fa-solid fa-gauge-high"></i> ตอบถูก: เร่งความเร็ว + Boost รถ!
+                </div>
+                <div class="flex items-center gap-2 text-rose-400 font-bold">
+                    <i class="fa-solid fa-triangle-exclamation"></i> ตอบผิด: เครื่องยนต์กระตุก รถช้าลง!
+                </div>
+                <div class="flex items-center gap-2 text-amber-400 font-bold">
+                    <i class="fa-solid fa-bolt"></i> ตอบถูกติด 3 ข้อ: ปลดล็อก TURBO BOOST 300+ KM/H!
+                </div>
+                <div class="flex items-center gap-2 text-purple-400 font-bold">
+                    <i class="fa-solid fa-layer-group"></i> 3 รอบการแข่งขัน (บวก/ลบ, คูณ/หาร, เศษส่วน & สมการ)
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-amber-500 to-red-500 hover:from-cyan-400 hover:to-red-400 text-slate-950 font-black text-lg font-orbitron tracking-wider shadow-lg shadow-cyan-500/30 transition transform active:scale-95 cursor-pointer">
+                START RACE! <i class="fa-solid fa-play ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- VICTORY / RACE COMPLETE MODAL -->
+    <div id="modalVictory" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="cyber-panel-amber w-full max-w-lg rounded-3xl p-6 sm:p-8 border-2 border-yellow-400/80 text-center relative shadow-2xl">
+            
+            <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-amber-400 via-yellow-300 to-red-500 p-0.5 mx-auto mb-4 shadow-2xl flex items-center justify-center animate-bounce">
+                <div class="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center text-4xl text-yellow-400">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+            </div>
+
+            <h2 id="victoryTitle" class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-red-500 font-orbitron tracking-wide mb-1">
+                VICTORY CHAMPION!
+            </h2>
+            <p id="victorySubtitle" class="text-xs sm:text-sm text-slate-300 mb-6 font-medium">คุณเข้าเส้นชัยเป็นอันดับ 1 ในการแข่ง MATH RACER!</p>
+
+            <!-- Race Stats Table -->
+            <div class="bg-slate-900/90 rounded-2xl p-4 border border-amber-500/30 text-left space-y-2.5 mb-6 text-xs sm:text-sm font-mono">
+                <div class="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span class="text-slate-400"><i class="fa-solid fa-stopwatch text-cyan-400 mr-1"></i> เวลาทั้งหมด:</span>
+                    <span id="statTime" class="text-cyan-300 font-bold">00:00</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span class="text-slate-400"><i class="fa-solid fa-gauge text-amber-400 mr-1"></i> ความเร็วสูงสุด:</span>
+                    <span id="statTopSpeed" class="text-amber-300 font-bold">0 KM/H</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span class="text-slate-400"><i class="fa-solid fa-bullseye text-emerald-400 mr-1"></i> ความแม่นยำ:</span>
+                    <span id="statAccuracy" class="text-emerald-300 font-bold">100%</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400"><i class="fa-solid fa-star text-yellow-400 mr-1"></i> คะแนนรวม:</span>
+                    <span id="statScore" class="text-yellow-300 font-bold">0</span>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-base font-orbitron shadow-lg shadow-amber-500/30 transition cursor-pointer">
+                RETRY / REPLAY <i class="fa-solid fa-rotate-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. WEB AUDIO SYNTHESIZER (Engine revs, Nitro boost & Sound Effects)
+           ========================================================================== */
+        class RaceAudioSynth {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.engineOsc = null;
+                this.engineGain = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            startEngineSound() {
+                if (this.muted) return;
+                this.init();
+                if (this.engineOsc) return;
+
+                this.engineOsc = this.ctx.createOscillator();
+                this.engineGain = this.ctx.createGain();
+
+                this.engineOsc.type = 'sawtooth';
+                this.engineOsc.frequency.setValueAtTime(60, this.ctx.currentTime); // Idle RPM
+                this.engineGain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+
+                // Lowpass filter for deep engine roar
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(400, this.ctx.currentTime);
+
+                this.engineOsc.connect(filter);
+                filter.connect(this.engineGain);
+                this.engineGain.connect(this.ctx.destination);
+                this.engineOsc.start();
+            }
+
+            updateEnginePitch(speedRatio) {
+                if (!this.ctx || !this.engineOsc || this.muted) return;
+                const freq = 60 + (speedRatio * 220); // Pitch scales with car speed
+                this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.1);
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.25);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playTurboBoost() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                // Sweep whoosh synth
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.6);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            }
+
+            playFanfare() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.35);
+                });
+            }
+        }
+
+        const audio = new RaceAudioSynth();
+
+        function toggleAudio() {
+            audio.muted = !audio.muted;
+            const icon = document.getElementById('audioIcon');
+            icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high text-cyan-400';
+            if (audio.muted && audio.engineGain) {
+                audio.engineGain.gain.setValueAtTime(0, audio.ctx.currentTime);
+            } else if (!audio.muted && audio.engineGain) {
+                audio.engineGain.gain.setValueAtTime(0.03, audio.ctx.currentTime);
+            }
+        }
+
+        /* ==========================================================================
+           2. MATH QUESTION GENERATOR (Levels 1 to 4)
+           ========================================================================== */
+        class MathGenerator {
+            static generate(level) {
+                switch(level) {
+                    case 1: return this.level1(); // Addition / Subtraction
+                    case 2: return this.level2(); // Multiplication / Division
+                    case 3: return this.level3(); // Simple Fractions
+                    case 4: return this.level4(); // Simple Equations
+                    default: return this.level1();
+                }
+            }
+
+            static level1() {
+                const isAdd = Math.random() > 0.4;
+                let a, b, answer, text;
+                if (isAdd) {
+                    a = Math.floor(Math.random() * 45) + 5;
+                    b = Math.floor(Math.random() * 45) + 5;
+                    answer = a + b;
+                    text = `${a} + ${b} = ?`;
+                } else {
+                    a = Math.floor(Math.random() * 70) + 20;
+                    b = Math.floor(Math.random() * (a - 5)) + 5;
+                    answer = a - b;
+                    text = `${a} - ${b} = ?`;
+                }
+                return { text, answer: String(answer), options: this.makeOptions(answer) };
+            }
+
+            static level2() {
+                const isMul = Math.random() > 0.4;
+                let a, b, answer, text;
+                if (isMul) {
+                    a = Math.floor(Math.random() * 11) + 2;
+                    b = Math.floor(Math.random() * 11) + 2;
+                    answer = a * b;
+                    text = `${a} × ${b} = ?`;
+                } else {
+                    b = Math.floor(Math.random() * 9) + 2;
+                    answer = Math.floor(Math.random() * 10) + 2;
+                    a = b * answer;
+                    text = `${a} ÷ ${b} = ?`;
+                }
+                return { text, answer: String(answer), options: this.makeOptions(answer) };
+            }
+
+            static level3() {
+                // Simple Fractions
+                const types = [
+                    { t: '1/4 + 2/4', ans: '3/4', opts: ['3/4', '2/4', '1/2', '4/4'] },
+                    { t: '1/2 + 1/4', ans: '3/4', opts: ['3/4', '2/6', '2/4', '1/3'] },
+                    { t: '3/5 - 1/5', ans: '2/5', opts: ['2/5', '4/5', '2/10', '1/5'] },
+                    { t: '1/3 + 1/3', ans: '2/3', opts: ['2/3', '2/6', '1/6', '3/3'] },
+                    { t: '1 - 1/3', ans: '2/3', opts: ['2/3', '1/3', '3/3', '1/2'] },
+                    { t: '2/8 + 3/8', ans: '5/8', opts: ['5/8', '5/16', '1/2', '4/8'] },
+                    { t: '1/2 + 1/2', ans: '1', opts: ['1', '2/4', '1/2', '2'] }
+                ];
+                const selected = types[Math.floor(Math.random() * types.length)];
+                return {
+                    text: `${selected.t} = ?`,
+                    answer: selected.ans,
+                    options: this.shuffle([...selected.opts])
+                };
+            }
+
+            static level4() {
+                // Simple Equations (e.g., 2x + 4 = 10 -> x = 3)
+                const a = Math.floor(Math.random() * 4) + 2; // 2..5
+                const xVal = Math.floor(Math.random() * 8) + 2; // 2..9
+                const c = Math.floor(Math.random() * 10) + 2;
+                const rhs = (a * xVal) + c;
+
+                const text = `${a}x + ${c} = ${rhs}  (หาค่า x)`;
+                const answer = xVal;
+                return { text, answer: String(answer), options: this.makeOptions(answer) };
+            }
+
+            static makeOptions(correctNum) {
+                const set = new Set([String(correctNum)]);
+                while (set.size < 4) {
+                    const delta = (Math.floor(Math.random() * 7) + 1) * (Math.random() > 0.5 ? 1 : -1);
+                    const dummy = Math.max(1, correctNum + delta);
+                    set.add(String(dummy));
+                }
+                return this.shuffle(Array.from(set));
+            }
+
+            static shuffle(arr) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+        }
+
+        /* ==========================================================================
+           3. CANVAS RACING ENGINE (Pseudo-3D Road, AI Racers, Particle Speed Lines)
+           ========================================================================== */
+        class RaceCanvasEngine {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                
+                this.speedLines = [];
+                this.roadOffset = 0;
+                this.finishLineProgress = 0; // 0 to 1 when approaching end of race
+                this.showFinishLine = false;
+
+                // Opponent AI Cars relative positions
+                this.opponents = [
+                    { x: -0.35, yDistance: 120, color: '#ef4444', speedFactor: 0.85, name: 'RED VIPER' },
+                    { x: 0.35, yDistance: 240, color: '#06b6d4', speedFactor: 0.90, name: 'CYAN BLAST' },
+                    { x: -0.15, yDistance: 380, color: '#a855f7', speedFactor: 0.95, name: 'PURPLE PHANTOM' }
+                ];
+
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width * window.devicePixelRatio;
+                this.canvas.height = rect.height * window.devicePixelRatio;
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                this.width = rect.width;
+                this.height = rect.height;
+                this.initSpeedLines();
+            }
+
+            initSpeedLines() {
+                this.speedLines = [];
+                for (let i = 0; i < 40; i++) {
+                    this.speedLines.push({
+                        x: Math.random() * this.width,
+                        y: Math.random() * this.height,
+                        length: Math.random() * 40 + 10,
+                        speed: Math.random() * 15 + 5
+                    });
+                }
+            }
+
+            render(carSpeed, isTurbo, lapProgress) {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                const speedRatio = carSpeed / 350; // Normalize max speed
+                this.roadOffset = (this.roadOffset + (carSpeed * 0.12)) % 80;
+
+                // 1. DRAW BACKGROUND ENVIRONMENT & SKY
+                const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.height * 0.45);
+                skyGrad.addColorStop(0, '#030712');
+                skyGrad.addColorStop(1, '#0f172a');
+                this.ctx.fillStyle = skyGrad;
+                this.ctx.fillRect(0, 0, this.width, this.height * 0.45);
+
+                // Horizon Cyber Grid
+                this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+                this.ctx.lineWidth = 1;
+                const horizonY = this.height * 0.42;
+
+                // 2. DRAW PERSPECTIVE ROAD
+                const roadTopW = this.width * 0.18;
+                const roadBottomW = this.width * 0.82;
+                const roadTopX = this.width / 2;
+                const roadBottomX = this.width / 2;
+
+                // Grass Sides
+                this.ctx.fillStyle = '#022c22';
+                this.ctx.fillRect(0, horizonY, this.width, this.height - horizonY);
+
+                // Main Asphalt Road Polygon
+                this.ctx.fillStyle = '#0f172a';
+                this.ctx.beginPath();
+                this.ctx.moveTo(roadTopX - roadTopW / 2, horizonY);
+                this.ctx.lineTo(roadTopX + roadTopW / 2, horizonY);
+                this.ctx.lineTo(roadBottomX + roadBottomW / 2, this.height);
+                this.ctx.lineTo(roadBottomX - roadBottomW / 2, this.height);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Road Borders & Curbs (Red/White stripes)
+                const numStripes = 16;
+                for (let i = 0; i < numStripes; i++) {
+                    const y1 = horizonY + Math.pow(i / numStripes, 2) * (this.height - horizonY);
+                    const y2 = horizonY + Math.pow((i + 1) / numStripes, 2) * (this.height - horizonY);
+
+                    // Dynamic offset based on speed
+                    const stripeColor = ((i + Math.floor(this.roadOffset / 20)) % 2 === 0) ? '#ef4444' : '#f8fafc';
+                    this.ctx.fillStyle = stripeColor;
+
+                    // Left Curb
+                    this.drawTrapezoid(
+                        roadTopX - (roadTopW * 0.5) - 6, y1,
+                        roadTopX - (roadTopW * 0.5), y1,
+                        roadBottomX - (roadBottomW * 0.5), y2,
+                        roadBottomX - (roadBottomW * 0.5) - 18, y2
+                    );
+
+                    // Right Curb
+                    this.drawTrapezoid(
+                        roadTopX + (roadTopW * 0.5), y1,
+                        roadTopX + (roadTopW * 0.5) + 6, y1,
+                        roadBottomX + (roadBottomW * 0.5) + 18, y2,
+                        roadBottomX + (roadBottomW * 0.5), y2
+                    );
+                }
+
+                // Center Lane Dashed Lines
+                this.ctx.strokeStyle = '#f59e0b';
+                this.ctx.lineWidth = 3;
+                this.ctx.setLineDash([20, 20]);
+                this.ctx.lineDashOffset = -this.roadOffset * 1.5;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(roadTopX, horizonY);
+                this.ctx.lineTo(roadBottomX, this.height);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]); // Reset line dash
+
+                // 3. FINISH LINE AT END OF LAP 3
+                if (lapProgress > 0.92) {
+                    const finishY = horizonY + (lapProgress - 0.92) / 0.08 * (this.height - horizonY - 120);
+                    this.drawFinishLine(finishY, roadTopX, roadBottomX, roadTopW, roadBottomW, horizonY);
+                }
+
+                // 4. DRAW OPPONENT CARS (Relative distance based on speed)
+                this.opponents.forEach(opp => {
+                    // Update opponent relative Y distance based on relative speed difference
+                    opp.yDistance -= (carSpeed - (180 * opp.speedFactor)) * 0.08;
+
+                    // Loop opponents ahead/behind continuously
+                    if (opp.yDistance < -100) opp.yDistance = 650;
+                    if (opp.yDistance > 700) opp.yDistance = -80;
+
+                    // Calculate screen Y perspective
+                    if (opp.yDistance > 0 && opp.yDistance < 500) {
+                        const relY = 1 - (opp.yDistance / 500);
+                        const screenY = horizonY + relY * (this.height - horizonY - 80);
+                        const scale = 0.3 + (relY * 0.7);
+                        const roadWAtY = roadTopW + relY * (roadBottomW - roadTopW);
+                        const screenX = roadBottomX + (opp.x * roadWAtY);
+
+                        this.drawSportsCar(screenX, screenY, scale, opp.color, false);
+                    }
+                });
+
+                // 5. DRAW PLAYER CAR (Centered at bottom)
+                const playerY = this.height - 110;
+                const playerX = this.width / 2;
+                this.drawSportsCar(playerX, playerY, 1.1, '#f59e0b', isTurbo);
+
+                // 6. DRAW SPEED LINES / MOTION BLUR
+                if (carSpeed > 100) {
+                    this.ctx.strokeStyle = isTurbo ? 'rgba(245, 158, 11, 0.6)' : 'rgba(255, 255, 255, 0.3)';
+                    this.ctx.lineWidth = isTurbo ? 2.5 : 1.5;
+
+                    this.speedLines.forEach(line => {
+                        line.y += line.speed * (carSpeed / 60);
+                        if (line.y > this.height) {
+                            line.y = 0;
+                            line.x = Math.random() * this.width;
+                        }
+
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(line.x, line.y);
+                        this.ctx.lineTo(line.x, line.y + line.length * (carSpeed / 120));
+                        this.ctx.stroke();
+                    });
+                }
+            }
+
+            drawTrapezoid(x1, y1, x2, y2, x3, y3, x4, y4) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x1, y1);
+                this.ctx.lineTo(x2, y2);
+                this.ctx.lineTo(x3, y3);
+                this.ctx.lineTo(x4, y4);
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+
+            drawFinishLine(y, topX, botX, topW, botW, horizonY) {
+                if (y < horizonY || y > this.height) return;
+                const progressRatio = (y - horizonY) / (this.height - horizonY);
+                const currentW = topW + progressRatio * (botW - topW);
+                const startX = botX - currentW / 2;
+                
+                const checkerSize = 12 * (0.4 + progressRatio * 0.6);
+                const cols = Math.floor(currentW / checkerSize);
+
+                for (let c = 0; c < cols; c++) {
+                    this.ctx.fillStyle = (c % 2 === 0) ? '#ffffff' : '#000000';
+                    this.ctx.fillRect(startX + c * checkerSize, y, checkerSize, checkerSize * 0.8);
+                }
+            }
+
+            drawSportsCar(x, y, scale, bodyColor, isBoost) {
+                this.ctx.save();
+                this.ctx.translate(x, y);
+                this.ctx.scale(scale, scale);
+
+                // Turbo Exhaust Flames
+                if (isBoost) {
+                    this.ctx.fillStyle = '#ef4444';
+                    this.ctx.beginPath();
+                    this.ctx.arc(-12, 35, Math.random() * 8 + 6, 0, Math.PI * 2);
+                    this.ctx.arc(12, 35, Math.random() * 8 + 6, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    this.ctx.fillStyle = '#f59e0b';
+                    this.ctx.beginPath();
+                    this.ctx.arc(-12, 32, Math.random() * 5 + 3, 0, Math.PI * 2);
+                    this.ctx.arc(12, 32, Math.random() * 5 + 3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                // Car Shadow
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                this.ctx.beginPath();
+                this.ctx.ellipse(0, 25, 30, 10, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Wheels (4 Tires)
+                this.ctx.fillStyle = '#1e293b';
+                this.ctx.fillRect(-28, -22, 8, 16); // Front Left
+                this.ctx.fillRect(20, -22, 8, 16);  // Front Right
+                this.ctx.fillRect(-29, 12, 9, 18);  // Rear Left
+                this.ctx.fillRect(20, 12, 9, 18);   // Rear Right
+
+                // Main Chassis Body
+                this.ctx.fillStyle = bodyColor;
+                this.ctx.beginPath();
+                this.ctx.roundRect(-22, -30, 44, 56, [14, 14, 8, 8]);
+                this.ctx.fill();
+
+                // Car Hood Stripes
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillRect(-5, -28, 3, 50);
+                this.ctx.fillRect(2, -28, 3, 50);
+
+                // Windshield Cockpit (Dark Glass)
+                this.ctx.fillStyle = '#0f172a';
+                this.ctx.beginPath();
+                this.ctx.roundRect(-15, -12, 30, 22, [6, 6, 4, 4]);
+                this.ctx.fill();
+
+                // Cockpit Glass Glow Reflection
+                this.ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+                this.ctx.beginPath();
+                this.ctx.roundRect(-12, -10, 24, 10, [4, 4, 2, 2]);
+                this.ctx.fill();
+
+                // Taillights
+                this.ctx.fillStyle = isBoost ? '#fef08a' : '#ef4444';
+                this.ctx.shadowColor = '#ef4444';
+                this.ctx.shadowBlur = 10;
+                this.ctx.fillRect(-18, 24, 10, 4);
+                this.ctx.fillRect(8, 24, 10, 4);
+
+                this.ctx.restore();
+            }
+        }
+
+        /* ==========================================================================
+           4. GAME STATE CONTROLLER & LOGIC
+           ========================================================================== */
+        let state = {
+            isRunning: false,
+            speed: 0,            // current km/h
+            targetSpeed: 0,      // target km/h based on performance
+            score: 0,
+            combo: 0,
+            turboTimer: 0,       // boost time remaining in seconds
+            currentLap: 1,       // 1, 2, 3
+            lapProgress: 0,      // 0.0 to 1.0 for each lap
+            totalDistance: 0,    // meters
+            startTime: 0,
+            elapsedTime: 0,
+            correctCount: 0,
+            totalAnswered: 0,
+            topSpeed: 0,
+            currentQuestion: null,
+            timerInterval: null
+        };
+
+        let canvasEngine = null;
+
+        // Initialize game environment on page load
+        window.addEventListener('load', () => {
+            canvasEngine = new RaceCanvasEngine('raceCanvas');
+            renderLoop();
+        });
+
+        function startGame() {
+            audio.init();
+            audio.startEngineSound();
+
+            state = {
+                isRunning: true,
+                speed: 40,
+                targetSpeed: 80,
+                score: 0,
+                combo: 0,
+                turboTimer: 0,
+                currentLap: 1,
+                lapProgress: 0,
+                totalDistance: 0,
+                startTime: Date.now(),
+                elapsedTime: 0,
+                correctCount: 0,
+                totalAnswered: 0,
+                topSpeed: 80,
+                currentQuestion: null,
+                timerInterval: null
+            };
+
+            // Hide Modals
+            document.getElementById('modalStart').classList.add('hidden');
+            document.getElementById('modalVictory').classList.add('hidden');
+
+            // Start Race Timer
+            if (state.timerInterval) clearInterval(state.timerInterval);
+            state.timerInterval = setInterval(updateTimer, 1000);
+
+            // Load First Question
+            loadNewQuestion();
+            updateHUD();
+        }
+
+        function updateTimer() {
+            if (!state.isRunning) return;
+            state.elapsedTime = Math.floor((Date.now() - state.startTime) / 1000);
+            const mins = String(Math.floor(state.elapsedTime / 60)).padStart(2, '0');
+            const secs = String(state.elapsedTime % 60).padStart(2, '0');
+            document.getElementById('hudTimer').innerText = `${mins}:${secs}`;
+        }
+
+        function getCurrentLevel() {
+            // Lap 1: Level 1 (Add/Sub), Lap 2: Level 2 (Mul/Div), Lap 3: Level 3/4
+            if (state.currentLap === 1) return 1;
+            if (state.currentLap === 2) return 2;
+            return Math.random() > 0.5 ? 3 : 4;
+        }
+
+        function loadNewQuestion() {
+            const level = getCurrentLevel();
+            state.currentQuestion = MathGenerator.generate(level);
+
+            // Update Level HUD text
+            const levelTitles = {
+                1: 'LEVEL 1: บวก & ลบ',
+                2: 'LEVEL 2: คูณ & หาร',
+                3: 'LEVEL 3: เศษส่วนง่าย ๆ',
+                4: 'LEVEL 4: สมการอย่างง่าย'
+            };
+
+            document.getElementById('hudLevelName').innerText = levelTitles[level];
+            document.getElementById('questionBadge').innerHTML = `<i class="fa-solid fa-brain"></i> ${levelTitles[level]}`;
+            document.getElementById('mathQuestionText').innerText = state.currentQuestion.text;
+
+            // Render Choice Buttons
+            const grid = document.getElementById('optionsGrid');
+            grid.innerHTML = '';
+
+            state.currentQuestion.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `option-btn w-full py-3 sm:py-4 px-3 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 hover:from-cyan-950 hover:to-slate-800 text-cyan-300 font-bold text-base sm:text-xl font-orbitron border border-cyan-500/40 hover:border-cyan-400 flex items-center justify-center gap-2 cursor-pointer shadow-lg`;
+                btn.innerHTML = `<span class="text-xs text-amber-400 font-normal">#${idx + 1}</span> ${opt}`;
+                btn.onclick = () => submitAnswer(opt);
+                grid.appendChild(btn);
+            });
+        }
+
+        function submitAnswer(selectedOpt) {
+            if (!state.isRunning) return;
+
+            state.totalAnswered++;
+            const isCorrect = (selectedOpt === state.currentQuestion.answer);
+
+            if (isCorrect) {
+                audio.playCorrect();
+                state.correctCount++;
+                state.combo++;
+                state.score += 100 * state.combo;
+
+                // Increase target speed!
+                state.targetSpeed = Math.min(280, state.targetSpeed + 35);
+
+                // Check Turbo Boost condition (3 consecutive correct)
+                if (state.combo >= 3) {
+                    triggerTurboBoost();
+                }
+            } else {
+                audio.playWrong();
+                state.combo = 0;
+                // Penalty: Slow down car
+                state.targetSpeed = Math.max(50, state.targetSpeed - 45);
+            }
+
+            // Update Combo text
+            document.getElementById('comboRemaining').innerText = Math.max(0, 3 - (state.combo % 3));
+            updateHUD();
+
+            // Load Next Question
+            loadNewQuestion();
+        }
+
+        function triggerTurboBoost() {
+            audio.playTurboBoost();
+            state.turboTimer = 3.5; // 3.5 seconds of boost
+            state.targetSpeed = 340; // Super velocity!
+
+            // Show Turbo Banner
+            const banner = document.getElementById('turboBanner');
+            banner.classList.remove('opacity-0', 'scale-50');
+            banner.classList.add('opacity-100', 'scale-100');
+
+            // Screen Shake Effect
+            document.getElementById('gameContainer').classList.add('shake');
+
+            setTimeout(() => {
+                banner.classList.add('opacity-0', 'scale-50');
+                banner.classList.remove('opacity-100', 'scale-100');
+                document.getElementById('gameContainer').classList.remove('shake');
+            }, 3000);
+        }
+
+        function updateHUD() {
+            document.getElementById('hudLap').innerText = `${state.currentLap} / 3`;
+            document.getElementById('hudScore').innerText = state.score;
+            document.getElementById('hudCombo').innerText = `${state.combo} 🔥`;
+            document.getElementById('hudDistance').innerText = `ระยะทาง: ${Math.floor(state.totalDistance)}m`;
+        }
+
+        function renderLoop() {
+            if (state.isRunning) {
+                // Smooth speed interpolation
+                state.speed += (state.targetSpeed - state.speed) * 0.05;
+
+                // Handle Turbo decay
+                if (state.turboTimer > 0) {
+                    state.turboTimer -= 0.016;
+                    if (state.turboTimer <= 0) {
+                        state.targetSpeed = 160; // Return to normal cruise speed
+                    }
+                }
+
+                // Track Top Speed
+                if (state.speed > state.topSpeed) {
+                    state.topSpeed = Math.floor(state.speed);
+                }
+
+                // Progress distance & Laps
+                const distanceDelta = (state.speed / 3.6) * 0.016 * 10; // scaled for gameplay
+                state.totalDistance += distanceDelta;
+                state.lapProgress += distanceDelta / 1200; // 1200m per lap
+
+                // Lap Completion Check
+                if (state.lapProgress >= 1.0) {
+                    state.lapProgress = 0;
+                    state.currentLap++;
+
+                    if (state.currentLap > 3) {
+                        // Finish Race Victory!
+                        completeRace();
+                    }
+                }
+
+                // Update Speedometer UI
+                document.getElementById('hudSpeed').innerText = Math.floor(state.speed);
+                const speedPercent = Math.min(100, (state.speed / 350) * 100);
+                document.getElementById('speedBar').style.width = `${speedPercent}%`;
+                
+                audio.updateEnginePitch(state.speed / 350);
+                updateHUD();
+            }
+
+            // Render Canvas Scene
+            canvasEngine.render(state.speed, state.turboTimer > 0, state.lapProgress);
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        function completeRace() {
+            state.isRunning = false;
+            clearInterval(state.timerInterval);
+            audio.playFanfare();
+
+            // Calculate accuracy & final stats
+            const accuracy = state.totalAnswered > 0 ? Math.round((state.correctCount / state.totalAnswered) * 100) : 100;
+            const mins = String(Math.floor(state.elapsedTime / 60)).padStart(2, '0');
+            const secs = String(state.elapsedTime % 60).padStart(2, '0');
+
+            document.getElementById('statTime').innerText = `${mins}:${secs}`;
+            document.getElementById('statTopSpeed').innerText = `${state.topSpeed} KM/H`;
+            document.getElementById('statAccuracy').innerText = `${accuracy}%`;
+            document.getElementById('statScore').innerText = state.score;
+
+            // Trigger Victory Confetti
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+
+            // Show Victory Modal
+            document.getElementById('modalVictory').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

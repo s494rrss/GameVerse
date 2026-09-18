@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DNA Match - เกมจับคู่เบสดีเอ็นเอ</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Prompt:wght@400;500;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Prompt', 'Fredoka', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Base Colors & Glows */
+        .base-A {
+            background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%);
+            border-color: #fb7185;
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.4);
+            color: #ffffff;
+        }
+
+        .base-T {
+            background: linear-gradient(135deg, #06b6d4 0%, #0e7490 100%);
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+            color: #ffffff;
+        }
+
+        .base-C {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            border-color: #34d399;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+            color: #ffffff;
+        }
+
+        .base-G {
+            background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+            border-color: #fbbf24;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+            color: #ffffff;
+        }
+
+        /* Interactive Base Button Styles */
+        .base-btn {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .base-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Animations */
+        @keyframes pulseActiveNode {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
+            50% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); }
+        }
+
+        .active-target-node {
+            animation: pulseActiveNode 1.5s infinite;
+            border-color: #38bdf8 !important;
+        }
+
+        @keyframes bondBeamAnim {
+            0% { opacity: 0; transform: scaleY(0); }
+            50% { opacity: 1; transform: scaleY(1.1); }
+            100% { opacity: 0.8; transform: scaleY(1); }
+        }
+
+        .bond-beam-connect {
+            animation: bondBeamAnim 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            transform-origin: top center;
+        }
+
+        @keyframes floatingScore {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.3); }
+        }
+
+        .float-score-anim {
+            animation: floatingScore 0.8s ease-out forwards;
+            pointer-events: none;
+        }
+
+        /* Custom Scrollbar */
+        .strand-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+        .strand-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        .strand-scroll::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between relative overflow-x-hidden">
+
+    <!-- Ambient Grid & Glow Background -->
+    <div class="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-900/20 via-gray-950 to-gray-950 pointer-events-none z-0"></div>
+    <div class="fixed inset-0 opacity-10 bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none z-0"></div>
+
+    <!-- HEADER HUD -->
+    <header class="w-full max-w-4xl mx-auto p-3 sm:p-4 relative z-10">
+        <div class="glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xl border-cyan-500/20">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-cyan-500 via-teal-400 to-emerald-300 p-0.5 shadow-lg flex items-center justify-center">
+                    <div class="w-full h-full bg-gray-950 rounded-[10px] flex items-center justify-center text-cyan-400">
+                        <i class="fa-solid fa-dna text-lg sm:text-xl animate-pulse"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-orbitron tracking-wider">
+                        DNA MATCH
+                    </h1>
+                    <p class="text-[10px] sm:text-xs text-gray-400 font-medium">เกมจับคู่เบสพันธุศาสตร์</p>
+                </div>
+            </div>
+
+            <!-- Game Stats Counters -->
+            <div class="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+                <!-- Round Badge -->
+                <div class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-gray-900/90 border border-gray-800 text-center min-w-[60px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">รอบ (ROUND)</div>
+                    <div id="lblRound" class="text-xs sm:text-sm font-black text-cyan-400 font-orbitron">1/15</div>
+                </div>
+
+                <!-- Combo Counter -->
+                <div class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-gray-900/90 border border-gray-800 text-center min-w-[55px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">COMBO</div>
+                    <div id="lblCombo" class="text-xs sm:text-sm font-black text-amber-400 font-orbitron">x1</div>
+                </div>
+
+                <!-- Score Counter -->
+                <div class="px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl bg-gray-900/90 border border-emerald-500/30 text-center min-w-[80px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">คะแนน (SCORE)</div>
+                    <div id="lblScore" class="text-sm sm:text-lg font-black text-emerald-400 font-orbitron">0</div>
+                </div>
+
+                <!-- Timer -->
+                <div class="px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl bg-gray-900/90 border border-cyan-500/30 text-center min-w-[65px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">เวลา (TIME)</div>
+                    <div id="lblTimer" class="text-sm sm:text-lg font-black text-cyan-300 font-orbitron">0.0s</div>
+                </div>
+
+                <!-- Mute Sound Toggle -->
+                <button id="btnSound" onclick="toggleSound()" class="p-2 sm:p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-cyan-400 transition cursor-pointer">
+                    <i id="iconSound" class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GAMEPLAY AREA -->
+    <main class="w-full max-w-4xl mx-auto px-3 sm:px-4 py-2 flex-1 flex flex-col justify-between relative z-10 gap-3">
+        
+        <!-- DNA HELIX CONTAINER -->
+        <div class="glass-panel rounded-3xl p-4 sm:p-6 border border-cyan-500/30 flex flex-col justify-between shadow-2xl relative min-h-[300px] sm:min-h-[360px]">
+            
+            <!-- Instructions Banner -->
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3 mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-cyan-400 text-sm font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-microscope"></i> สาย DNA แม่แบบ (Template Strand)
+                    </span>
+                </div>
+                <div class="text-xs text-gray-400 font-mono">
+                    เติมคู่เบสตำแหน่งที่ <span id="targetIndexLbl" class="text-cyan-300 font-bold">1</span>/<span id="totalIndexLbl" class="text-gray-300">6</span>
+                </div>
+            </div>
+
+            <!-- Floating Score Container for Animations -->
+            <div id="floatScoreContainer" class="absolute inset-0 pointer-events-none z-30"></div>
+
+            <!-- DNA STRANDS VISUAL DISPLAY -->
+            <div class="my-auto py-2">
+                <div class="overflow-x-auto strand-scroll pb-3">
+                    <div class="flex flex-col items-center justify-center min-w-max mx-auto px-4 space-y-3">
+                        
+                        <!-- TOP STRAND (Template Bases) -->
+                        <div id="topStrandRow" class="flex items-center gap-2 sm:gap-3">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+
+                        <!-- HYDROGEN BONDS MIDDLE CONNECTORS -->
+                        <div id="bondsRow" class="flex items-center gap-2 sm:gap-3 h-12">
+                            <!-- Animated Hydrogen Bonds Populated by JS -->
+                        </div>
+
+                        <!-- BOTTOM STRAND (Player Input Bases) -->
+                        <div id="bottomStrandRow" class="flex items-center gap-2 sm:gap-3">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rule Reminder Banner at Bottom of Board -->
+            <div class="bg-gray-900/80 rounded-2xl p-2.5 border border-gray-800 flex flex-wrap items-center justify-between text-xs sm:text-sm text-gray-300 gap-2">
+                <div class="flex items-center gap-3 mx-auto sm:mx-0">
+                    <span class="font-bold text-gray-400">กฎจับคู่เบส:</span>
+                    <span class="px-2.5 py-0.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">A ↔ T</span>
+                    <span class="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">C ↔ G</span>
+                </div>
+                <div class="text-gray-400 text-xs hidden sm:block">
+                    <i class="fa-solid fa-keyboard text-cyan-400 mr-1"></i> กดแป้นพิมพ์ <kbd class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 text-cyan-300 font-mono">A</kbd> <kbd class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 text-cyan-300 font-mono">C</kbd> <kbd class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 text-cyan-300 font-mono">G</kbd> <kbd class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 text-cyan-300 font-mono">T</kbd>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- BOTTOM CONTROLLER: BASE SELECTION KEYPAD -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            
+            <!-- BASE A BUTTON -->
+            <button onclick="handleBaseInput('A')" class="base-btn base-A p-4 sm:p-5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 shadow-lg cursor-pointer hover:brightness-110">
+                <span class="text-2xl sm:text-4xl font-black font-orbitron tracking-wider">A</span>
+                <span class="text-[10px] sm:text-xs font-semibold opacity-90">Adenine (อะดีนีน)</span>
+                <span class="hidden sm:inline-block text-[9px] bg-black/30 px-2 py-0.5 rounded-full mt-1 font-mono">กด [A]</span>
+            </button>
+
+            <!-- BASE C BUTTON -->
+            <button onclick="handleBaseInput('C')" class="base-btn base-C p-4 sm:p-5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 shadow-lg cursor-pointer hover:brightness-110">
+                <span class="text-2xl sm:text-4xl font-black font-orbitron tracking-wider">C</span>
+                <span class="text-[10px] sm:text-xs font-semibold opacity-90">Cytosine (ไซโทซีน)</span>
+                <span class="hidden sm:inline-block text-[9px] bg-black/30 px-2 py-0.5 rounded-full mt-1 font-mono">กด [C]</span>
+            </button>
+
+            <!-- BASE G BUTTON -->
+            <button onclick="handleBaseInput('G')" class="base-btn base-G p-4 sm:p-5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 shadow-lg cursor-pointer hover:brightness-110">
+                <span class="text-2xl sm:text-4xl font-black font-orbitron tracking-wider">G</span>
+                <span class="text-[10px] sm:text-xs font-semibold opacity-90">Guanine (กัวนีน)</span>
+                <span class="hidden sm:inline-block text-[9px] bg-black/30 px-2 py-0.5 rounded-full mt-1 font-mono">กด [G]</span>
+            </button>
+
+            <!-- BASE T BUTTON -->
+            <button onclick="handleBaseInput('T')" class="base-btn base-T p-4 sm:p-5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 shadow-lg cursor-pointer hover:brightness-110">
+                <span class="text-2xl sm:text-4xl font-black font-orbitron tracking-wider">T</span>
+                <span class="text-[10px] sm:text-xs font-semibold opacity-90">Thymine (ไทมีน)</span>
+                <span class="hidden sm:inline-block text-[9px] bg-black/30 px-2 py-0.5 rounded-full mt-1 font-mono">กด [T]</span>
+            </button>
+
+        </div>
+
+    </main>
+
+    <!-- START / WELCOME MODAL -->
+    <div id="modalStart" class="fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-cyan-500/40 text-center relative overflow-hidden shadow-2xl">
+            
+            <!-- Animated Helix Icon -->
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-cyan-500 via-teal-400 to-emerald-300 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-gray-950 rounded-[14px] flex items-center justify-center text-4xl text-cyan-400">
+                    <i class="fa-solid fa-dna animate-bounce"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 font-orbitron mb-2">
+                DNA MATCH
+            </h2>
+            <p class="text-xs sm:text-sm text-gray-300 mb-5 leading-relaxed bg-gray-900/80 p-3.5 rounded-2xl border border-gray-800">
+                สวมบทบาทเป็นนักพันธุศาสตร์! เติมคู่เบสสายสมบูรณ์ (Complementary Strand) ให้ถูกต้องตามกฎชีววิทยาเพื่อสร้างโมเลกุล DNA ที่สมบูรณ์
+            </p>
+
+            <!-- Base Pairing Rules Highlight -->
+            <div class="space-y-2 text-xs text-gray-200 text-left mb-6 bg-gray-950/80 p-4 rounded-2xl border border-cyan-500/30">
+                <div class="text-center font-bold text-cyan-400 mb-1">กฎพื้นฐานการจับคู่เบส (Complementary Base Pairing):</div>
+                <div class="flex items-center justify-around bg-gray-900 p-2.5 rounded-xl border border-gray-800 font-bold">
+                    <span class="text-rose-400">Adenine (A)</span>
+                    <i class="fa-solid fa-arrows-left-right text-gray-500"></i>
+                    <span class="text-cyan-400">Thymine (T)</span>
+                </div>
+                <div class="flex items-center justify-around bg-gray-900 p-2.5 rounded-xl border border-gray-800 font-bold">
+                    <span class="text-emerald-400">Cytosine (C)</span>
+                    <i class="fa-solid fa-arrows-left-right text-gray-500"></i>
+                    <span class="text-amber-400">Guanine (G)</span>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-gray-950 font-black text-lg shadow-lg shadow-cyan-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                START MATCHING <i class="fa-solid fa-play ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="modalGameOver" class="hidden fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-emerald-500/40 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-gray-950 rounded-[14px] flex items-center justify-center text-4xl text-emerald-400">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300 font-orbitron mb-1">
+                SEQUENCE COMPLETE!
+            </h2>
+            <p class="text-xs text-gray-400 mb-4">การสังเคราะห์ DNA ครบถ้วน 15 รอบสมบูรณ์</p>
+
+            <!-- Stats Summary -->
+            <div class="bg-gray-900/90 rounded-2xl p-4 border border-gray-800 space-y-2.5 mb-5 text-xs sm:text-sm">
+                <div class="flex justify-between items-center text-gray-300">
+                    <span><i class="fa-solid fa-star text-amber-400 mr-1.5"></i> คะแนนรวมทั้งหมด:</span>
+                    <span id="goTotalScore" class="font-black text-emerald-400 text-base sm:text-lg font-orbitron">0</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300">
+                    <span><i class="fa-solid fa-fire text-amber-500 mr-1.5"></i> คอมโบสูงสุด:</span>
+                    <span id="goMaxCombo" class="font-bold text-amber-400 font-orbitron">x1</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300">
+                    <span><i class="fa-regular fa-clock text-cyan-400 mr-1.5"></i> เวลารวมที่ใช้:</span>
+                    <span id="goTotalTime" class="font-bold text-cyan-300 font-orbitron">0.0s</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300 border-t border-gray-800 pt-2">
+                    <span><i class="fa-solid fa-bullseye text-teal-400 mr-1.5"></i> ความแม่นยำในการจับคู่:</span>
+                    <span id="goAccuracy" class="font-bold text-teal-300 font-orbitron">100%</span>
+                </div>
+            </div>
+
+            <!-- Mandatory Educational Message Requirement -->
+            <div class="bg-gradient-to-r from-cyan-950/60 to-teal-950/60 p-4 rounded-2xl border border-cyan-500/40 text-left mb-6 space-y-1.5 shadow-inner">
+                <div class="text-xs font-bold text-cyan-300 flex items-center gap-1.5 mb-2">
+                    <i class="fa-solid fa-graduation-cap"></i> สรุปหลักการจับคู่เบสดีเอ็นเอ:
+                </div>
+                <div class="text-sm font-extrabold text-rose-300 flex items-center justify-between bg-gray-950/80 px-3 py-2 rounded-xl border border-rose-500/30">
+                    <span>A (Adenine)</span>
+                    <span class="text-gray-400">จับคู่กับ</span>
+                    <span class="text-cyan-300">T (Thymine)</span>
+                </div>
+                <div class="text-sm font-extrabold text-emerald-300 flex items-center justify-between bg-gray-950/80 px-3 py-2 rounded-xl border border-emerald-500/30">
+                    <span>C (Cytosine)</span>
+                    <span class="text-gray-400">จับคู่กับ</span>
+                    <span class="text-amber-300">G (Guanine)</span>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-gray-950 font-black text-lg shadow-lg shadow-cyan-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                PLAY AGAIN <i class="fa-solid fa-rotate-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="w-full max-w-4xl mx-auto p-3 text-center text-[11px] text-gray-500 font-medium z-10">
+        DNA Match &copy; 2026 - สื่อการเรียนรู้พันธุศาสตร์และชีววิทยา HTML5
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. WEB AUDIO SYNTHESIZER ENGINE
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBasePress(base) {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                // Distinct pitch for each base (A, C, G, T)
+                const freqMap = { 'A': 440, 'C': 554.37, 'G': 659.25, 'T': 880 };
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freqMap[base] || 500, now);
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            playMatchSuccess(comboMultiplier) {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                // Harmonious ascending pitch scaled with combo
+                const baseFreq = 523.25 + (Math.min(comboMultiplier, 10) * 30);
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(baseFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.15);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.18);
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.2);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            playRoundComplete() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+
+                // Victory chime sequence
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.06);
+                    osc.stop(now + idx * 0.06 + 0.25);
+                });
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        function toggleSound() {
+            audio.muted = !audio.muted;
+            const icon = document.getElementById('iconSound');
+            icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high text-cyan-400';
+        }
+
+        /* ==========================================================================
+           2. GAME DATA & CORE STATE
+           ========================================================================== */
+        const TOTAL_ROUNDS = 15;
+        const BASES = ['A', 'C', 'G', 'T'];
+        const PAIR_MAP = {
+            'A': 'T',
+            'T': 'A',
+            'C': 'G',
+            'G': 'C'
+        };
+
+        let currentRound = 1;
+        let score = 0;
+        let combo = 1;
+        let maxCombo = 1;
+        let totalTimeSeconds = 0;
+        let gameTimerInterval = null;
+        let isGameActive = false;
+
+        let totalAttempts = 0;
+        let correctHits = 0;
+
+        // Current round strand data
+        let templateStrand = [];
+        let playerStrand = [];
+        let currentTargetIndex = 0;
+
+        /* ==========================================================================
+           3. GAME ENGINE LOGIC
+           ========================================================================== */
+        function startGame() {
+            currentRound = 1;
+            score = 0;
+            combo = 1;
+            maxCombo = 1;
+            totalTimeSeconds = 0;
+            totalAttempts = 0;
+            correctHits = 0;
+            isGameActive = true;
+
+            document.getElementById('lblScore').innerText = '0';
+            document.getElementById('lblCombo').innerText = 'x1';
+            document.getElementById('lblRound').innerText = `1/${TOTAL_ROUNDS}`;
+            document.getElementById('lblTimer').innerText = '0.0s';
+
+            document.getElementById('modalStart').classList.add('hidden');
+            document.getElementById('modalGameOver').classList.add('hidden');
+
+            setupRound(currentRound);
+
+            // Start main game timer
+            clearInterval(gameTimerInterval);
+            const startTime = Date.now();
+            gameTimerInterval = setInterval(() => {
+                if (!isGameActive) return;
+                totalTimeSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+                document.getElementById('lblTimer').innerText = `${totalTimeSeconds}s`;
+            }, 100);
+        }
+
+        function setupRound(roundNum) {
+            currentTargetIndex = 0;
+            playerStrand = [];
+
+            // Strand length scales gradually from 4 bases to 8 bases across 15 rounds
+            let strandLength = 4;
+            if (roundNum >= 4 && roundNum <= 7) strandLength = 5;
+            else if (roundNum >= 8 && roundNum <= 11) strandLength = 6;
+            else if (roundNum >= 12 && roundNum <= 14) strandLength = 7;
+            else if (roundNum === 15) strandLength = 8;
+
+            // Generate random template DNA strand
+            templateStrand = [];
+            for (let i = 0; i < strandLength; i++) {
+                const randomBase = BASES[Math.floor(Math.random() * BASES.length)];
+                templateStrand.push(randomBase);
+            }
+
+            document.getElementById('lblRound').innerText = `${roundNum}/${TOTAL_ROUNDS}`;
+            document.getElementById('targetIndexLbl').innerText = '1';
+            document.getElementById('totalIndexLbl').innerText = strandLength;
+
+            renderDNAStrands();
+        }
+
+        function renderDNAStrands() {
+            const topRow = document.getElementById('topStrandRow');
+            const bondsRow = document.getElementById('bondsRow');
+            const bottomRow = document.getElementById('bottomStrandRow');
+
+            topRow.innerHTML = '';
+            bondsRow.innerHTML = '';
+            bottomRow.innerHTML = '';
+
+            templateStrand.forEach((base, idx) => {
+                // TOP BASE CARD
+                const topNode = document.createElement('div');
+                topNode.className = `w-12 h-14 sm:w-16 sm:h-18 rounded-2xl border-2 flex flex-col items-center justify-center font-black font-orbitron text-lg sm:text-2xl shadow-md base-${base} transition-all`;
+                topNode.innerText = base;
+
+                // Highlight current active base target
+                if (idx === currentTargetIndex) {
+                    topNode.classList.add('active-target-node');
+                }
+                topRow.appendChild(topNode);
+
+                // MIDDLE BOND CONNECTOR
+                const bondNode = document.createElement('div');
+                bondNode.id = `bond-node-${idx}`;
+                bondNode.className = 'w-12 sm:w-16 h-full flex items-center justify-center';
+
+                if (idx < playerStrand.length) {
+                    // Show rendered hydrogen bond
+                    const pairType = (base === 'A' || base === 'T') ? 'double' : 'triple';
+                    bondNode.innerHTML = renderBondSVG(pairType);
+                } else {
+                    bondNode.innerHTML = `<div class="w-0.5 h-6 bg-gray-800/60 rounded-full"></div>`;
+                }
+                bondsRow.appendChild(bondNode);
+
+                // BOTTOM PLAYER BASE SLOT
+                const bottomNode = document.createElement('div');
+                bottomNode.id = `player-node-${idx}`;
+
+                if (idx < playerStrand.length) {
+                    const playerBase = playerStrand[idx];
+                    bottomNode.className = `w-12 h-14 sm:w-16 sm:h-18 rounded-2xl border-2 flex flex-col items-center justify-center font-black font-orbitron text-lg sm:text-2xl shadow-md base-${playerBase}`;
+                    bottomNode.innerText = playerBase;
+                } else if (idx === currentTargetIndex) {
+                    bottomNode.className = `w-12 h-14 sm:w-16 sm:h-18 rounded-2xl border-2 border-dashed border-cyan-400 bg-cyan-950/30 flex items-center justify-center text-cyan-400 font-bold text-xl animate-pulse`;
+                    bottomNode.innerText = '?';
+                } else {
+                    bottomNode.className = `w-12 h-14 sm:w-16 sm:h-18 rounded-2xl border-2 border-dashed border-gray-800 bg-gray-900/40 flex items-center justify-center text-gray-700 font-bold text-lg`;
+                    bottomNode.innerText = '';
+                }
+                bottomRow.appendChild(bottomNode);
+            });
+        }
+
+        function renderBondSVG(type) {
+            if (type === 'double') {
+                // A = T Double Bond
+                return `
+                    <div class="bond-beam-connect flex gap-1.5 items-center justify-center h-full">
+                        <div class="w-1 h-8 bg-gradient-to-b from-rose-400 to-cyan-400 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.8)]"></div>
+                        <div class="w-1 h-8 bg-gradient-to-b from-rose-400 to-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.8)]"></div>
+                    </div>
+                `;
+            } else {
+                // C ≡ G Triple Bond
+                return `
+                    <div class="bond-beam-connect flex gap-1 items-center justify-center h-full">
+                        <div class="w-1 h-8 bg-gradient-to-b from-emerald-400 to-amber-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                        <div class="w-1 h-8 bg-gradient-to-b from-teal-300 to-yellow-300 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
+                        <div class="w-1 h-8 bg-gradient-to-b from-emerald-400 to-amber-400 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)]"></div>
+                    </div>
+                `;
+            }
+        }
+
+        /* ==========================================================================
+           4. PLAYER INPUT & MATCHING HANDLER
+           ========================================================================== */
+        function handleBaseInput(selectedBase) {
+            if (!isGameActive) return;
+
+            audio.playBasePress(selectedBase);
+            totalAttempts++;
+
+            const targetTemplateBase = templateStrand[currentTargetIndex];
+            const expectedComplementBase = PAIR_MAP[targetTemplateBase];
+
+            if (selectedBase === expectedComplementBase) {
+                // CORRECT MATCH
+                correctHits++;
+                playerStrand.push(selectedBase);
+
+                audio.playMatchSuccess(combo);
+
+                // Add points: Base +10 * Combo
+                const pointsEarned = 10 * combo;
+                score += pointsEarned;
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+
+                document.getElementById('lblScore').innerText = score;
+                document.getElementById('lblCombo').innerText = `x${combo}`;
+
+                // Trigger visual floating text animation
+                spawnFloatingScore(`+${pointsEarned}`);
+
+                // Advance target position
+                currentTargetIndex++;
+                document.getElementById('targetIndexLbl').innerText = Math.min(currentTargetIndex + 1, templateStrand.length);
+
+                renderDNAStrands();
+
+                // Check if round is complete
+                if (currentTargetIndex >= templateStrand.length) {
+                    audio.playRoundComplete();
+                    
+                    setTimeout(() => {
+                        if (currentRound < TOTAL_ROUNDS) {
+                            currentRound++;
+                            setupRound(currentRound);
+                        } else {
+                            endGame();
+                        }
+                    }, 400);
+                }
+
+            } else {
+                // INCORRECT MATCH
+                audio.playWrong();
+                combo = 1; // Reset combo multiplier
+                document.getElementById('lblCombo').innerText = 'x1';
+
+                // Shake active top base node
+                const topRow = document.getElementById('topStrandRow');
+                const targetNode = topRow.children[currentTargetIndex];
+                if (targetNode) {
+                    targetNode.classList.add('animate-bounce');
+                    setTimeout(() => targetNode.classList.remove('animate-bounce'), 400);
+                }
+            }
+        }
+
+        function spawnFloatingScore(text) {
+            const container = document.getElementById('floatScoreContainer');
+            const floatEl = document.createElement('div');
+            floatEl.className = 'absolute font-black font-orbitron text-xl sm:text-2xl text-amber-300 float-score-anim shadow-sm';
+            floatEl.innerText = text;
+
+            // Position near center
+            floatEl.style.left = '50%';
+            floatEl.style.top = '45%';
+            floatEl.style.transform = 'translate(-50%, -50%)';
+
+            container.appendChild(floatEl);
+            setTimeout(() => floatEl.remove(), 800);
+        }
+
+        /* ==========================================================================
+           5. GAME OVER & KEYBOARD CONTROLS
+           ========================================================================== */
+        function endGame() {
+            isGameActive = false;
+            clearInterval(gameTimerInterval);
+
+            const accuracy = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : 100;
+
+            document.getElementById('goTotalScore').innerText = score;
+            document.getElementById('goMaxCombo').innerText = `x${maxCombo}`;
+            document.getElementById('goTotalTime').innerText = `${totalTimeSeconds}s`;
+            document.getElementById('goAccuracy').innerText = `${accuracy}%`;
+
+            document.getElementById('modalGameOver').classList.remove('hidden');
+        }
+
+        /* Keyboard Shortcuts Support (A, C, G, T) */
+        window.addEventListener('keydown', (e) => {
+            if (!isGameActive) return;
+
+            const key = e.key.toUpperCase();
+            if (['A', 'C', 'G', 'T'].includes(key)) {
+                handleBaseInput(key);
+            }
+        });
+    </script>
+</body>
+</html>

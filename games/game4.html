@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Lab - เกมจับคู่สูตรเคมีวิทยาศาสตร์</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Prompt:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --neon-cyan: #06b6d4;
+            --neon-amber: #f59e0b;
+            --neon-emerald: #10b981;
+            --neon-purple: #a855f7;
+        }
+
+        body {
+            font-family: 'Prompt', 'Chakra Petch', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+        }
+
+        .font-lab {
+            font-family: 'Chakra Petch', 'Prompt', sans-serif;
+        }
+
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-cyan {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+        }
+
+        .glass-amber {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+        }
+
+        /* 3D Card Flip Effect */
+        .card-container {
+            perspective: 1000px;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .card-container.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-container.matched .card-inner {
+            transform: rotateY(180deg) scale(0.95);
+            opacity: 0.85;
+            cursor: default;
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Card Front (Cover) */
+        .card-front {
+            background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%);
+            border: 2px solid rgba(6, 182, 212, 0.3);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .card-container:hover:not(.flipped):not(.matched) .card-front {
+            border-color: rgba(6, 182, 212, 0.8);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+            transform: translateY(-3px);
+        }
+
+        /* Card Back (Content Revealed) */
+        .card-back {
+            transform: rotateY(180deg);
+        }
+
+        .card-back-formula {
+            background: linear-gradient(145deg, #0f172a 0%, #083344 100%);
+            border: 2px solid rgba(6, 182, 212, 0.8);
+            box-shadow: 0 0 18px rgba(6, 182, 212, 0.3);
+        }
+
+        .card-back-name {
+            background: linear-gradient(145deg, #0f172a 0%, #451a03 100%);
+            border: 2px solid rgba(245, 158, 11, 0.8);
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.3);
+        }
+
+        .card-container.matched .card-back-formula {
+            border-color: #10b981;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            background: linear-gradient(145deg, #064e3b 0%, #022c22 100%);
+        }
+
+        .card-container.matched .card-back-name {
+            border-color: #10b981;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            background: linear-gradient(145deg, #064e3b 0%, #022c22 100%);
+        }
+
+        /* Screen Shake Animation on Wrong Match */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Pulse glow for title */
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.6)); }
+            50% { filter: drop-shadow(0 0 25px rgba(16, 185, 129, 0.9)); }
+        }
+
+        .glow-title {
+            animation: pulseGlow 3s infinite;
+        }
+
+        /* Floating particles behind cards */
+        .lab-bg-grid {
+            background-image: 
+                linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.5);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative lab-bg-grid bg-slate-950 text-slate-100">
+
+    <!-- TOP NAVIGATION & GAME HUD BAR -->
+    <header class="w-full max-w-5xl mx-auto p-4 z-20">
+        <div class="glass-panel rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xl border-cyan-500/20">
+            
+            <!-- Brand & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 via-emerald-400 to-amber-500 p-0.5 shadow-lg shadow-cyan-500/30 flex items-center justify-center">
+                    <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+                        <i class="fa-solid fa-flask-vial text-2xl text-cyan-400"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-emerald-300 to-amber-300 font-lab tracking-wider glow-title flex items-center gap-2">
+                        MEMORY LAB
+                    </h1>
+                    <p class="text-xs text-slate-400 flex items-center gap-1 font-medium">
+                        <i class="fa-solid fa-atom text-cyan-400"></i> ห้องทดลองจับคู่สูตรเคมี
+                    </p>
+                </div>
+            </div>
+
+            <!-- Level Selector Buttons -->
+            <div class="flex items-center gap-1.5 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
+                <button id="btnLevel1" class="btn-level px-3 py-1.5 rounded-lg font-lab font-bold text-xs transition bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20" onclick="setLevel(1)">
+                    Level 1 <span class="text-[10px] block font-sans font-normal">(6 คู่)</span>
+                </button>
+                <button id="btnLevel2" class="btn-level px-3 py-1.5 rounded-lg font-lab font-bold text-xs transition text-slate-400 hover:text-white hover:bg-slate-800" onclick="setLevel(2)">
+                    Level 2 <span class="text-[10px] block font-sans font-normal">(8 คู่)</span>
+                </button>
+                <button id="btnLevel3" class="btn-level px-3 py-1.5 rounded-lg font-lab font-bold text-xs transition text-slate-400 hover:text-white hover:bg-slate-800" onclick="setLevel(3)">
+                    Level 3 <span class="text-[10px] block font-sans font-normal">(10 คู่)</span>
+                </button>
+            </div>
+
+            <!-- Game Stats Counters -->
+            <div class="flex items-center gap-3">
+                <!-- Matches Counter -->
+                <div class="px-3.5 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center">
+                    <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">จับคู่สำเร็จ</div>
+                    <div id="lblMatches" class="text-lg font-black text-emerald-400 font-lab">0 / 6</div>
+                </div>
+
+                <!-- Timer Counter -->
+                <div class="px-3.5 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-center">
+                    <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">เวลา</div>
+                    <div id="lblTimer" class="text-lg font-black text-cyan-400 font-lab">00:00</div>
+                </div>
+
+                <!-- Score Counter -->
+                <div class="px-3.5 py-1.5 rounded-xl bg-slate-900/90 border border-amber-500/30 text-center">
+                    <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">คะแนน</div>
+                    <div id="lblScore" class="text-lg font-black text-amber-400 font-lab">0</div>
+                </div>
+
+                <!-- Sound & Restart Buttons -->
+                <div class="flex items-center gap-1.5">
+                    <button id="btnSoundToggle" onclick="toggleSound()" class="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-cyan-400 border border-slate-700 transition" title="เปิด/ปิด เสียง">
+                        <i id="iconSound" class="fa-solid fa-volume-high"></i>
+                    </button>
+                    <button onclick="restartGame()" class="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-400 border border-slate-700 transition" title="เริ่มเกมใหม่">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- MAIN MEMORY LAB GAME ARENA -->
+    <main class="w-full max-w-5xl mx-auto px-4 py-2 flex-1 flex flex-col items-center justify-center relative z-10">
+
+        <!-- Legend / Hint Tag Bar -->
+        <div class="w-full max-w-4xl flex items-center justify-between text-xs text-slate-400 mb-3 px-2">
+            <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5 font-medium">
+                    <span class="w-3 h-3 rounded-full bg-cyan-500/30 border border-cyan-400 inline-block"></span> 
+                    สูตรเคมี (Formula)
+                </span>
+                <span class="flex items-center gap-1.5 font-medium">
+                    <span class="w-3 h-3 rounded-full bg-amber-500/30 border border-amber-400 inline-block"></span> 
+                    ชื่อสารเคมี (Name)
+                </span>
+            </div>
+            <div id="lblFlipsCount" class="font-lab text-slate-400 font-semibold">
+                พลิกการ์ดไปแล้ว: <span id="valFlips" class="text-white font-bold">0</span> ครั้ง
+            </div>
+        </div>
+
+        <!-- DYNAMIC CARDS GRID CONTAINER -->
+        <div id="memoryGrid" class="w-full max-w-4xl grid gap-3 sm:gap-4 justify-center items-center transition-all duration-300">
+            <!-- Cards generated dynamically via JavaScript -->
+        </div>
+
+    </main>
+
+    <!-- SCIENCE FACT POPUP MODAL (Triggers when a pair is matched) -->
+    <div id="modalFact" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 border-2 border-emerald-500/50 text-center relative overflow-hidden shadow-2xl animate-bounce-short">
+            
+            <!-- Glowing Header Flask -->
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 mx-auto mb-3 shadow-lg shadow-emerald-500/30 flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-3xl text-emerald-400">
+                    <i class="fa-solid fa-vial-circle-check"></i>
+                </div>
+            </div>
+
+            <div class="text-xs uppercase font-bold tracking-widest text-emerald-400 mb-1 font-lab">
+                จับคู่สำเร็จ! (Match Discovery)
+            </div>
+
+            <!-- Compound Formula & Name -->
+            <div class="my-3 p-3 rounded-2xl bg-slate-900/90 border border-emerald-500/30 flex items-center justify-center gap-4">
+                <span id="factFormula" class="text-2xl font-black text-cyan-400 font-lab">H₂O</span>
+                <i class="fa-solid fa-arrows-rotate text-emerald-400 text-sm"></i>
+                <span id="factName" class="text-xl font-bold text-amber-300">น้ำ (Water)</span>
+            </div>
+
+            <!-- Short Scientific Description -->
+            <p id="factDescription" class="text-sm text-slate-300 leading-relaxed font-normal bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-left mb-5">
+                โมเลกุลประกอบด้วยไฮโดรเจน 2 อะตอม และออกซิเจน 1 อะตอม เป็นสารประกอบสำคัญที่สุดสำหรับการดำรงชีวิตของสิ่งมีชีวิตทุกชนิดบนโลก
+            </p>
+
+            <button onclick="closeFactModal()" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm shadow-lg shadow-emerald-500/25 transition cursor-pointer font-lab tracking-wider">
+                เรียนรู้ต่อ (NEXT) <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- LEVEL COMPLETED / VICTORY MODAL -->
+    <div id="modalVictory" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-lg z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-6 sm:p-8 border-2 border-cyan-500/50 text-center relative overflow-hidden shadow-2xl">
+            
+            <!-- Crown / Trophy Emblem -->
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 p-0.5 mx-auto mb-4 shadow-xl shadow-amber-500/30 flex items-center justify-center">
+                <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-4xl text-amber-400">
+                    <i class="fa-solid fa-award"></i>
+                </div>
+            </div>
+
+            <h3 class="text-2xl sm:text-3xl font-black font-lab text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-300 mb-1">
+                ภารกิจการทดลองสำเร็จ!
+            </h3>
+            <p id="vicLevelTitle" class="text-sm text-slate-400 font-medium mb-5">
+                คุณสามารถจับคู่สารเคมีใน Level 1 ได้ครบทุกคู่
+            </p>
+
+            <!-- Rating Stars -->
+            <div class="flex justify-center gap-2 text-3xl text-amber-400 mb-6">
+                <i id="star1" class="fa-solid fa-star"></i>
+                <i id="star2" class="fa-solid fa-star"></i>
+                <i id="star3" class="fa-solid fa-star"></i>
+            </div>
+
+            <!-- Stats Summary Box -->
+            <div class="grid grid-cols-3 gap-2 sm:gap-3 bg-slate-900/90 rounded-2xl p-4 border border-slate-800 mb-6 text-center">
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">เวลาที่ใช้</div>
+                    <div id="vicTime" class="text-lg sm:text-xl font-black text-cyan-400 font-lab">00:45</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">จำนวนเปิดการ์ด</div>
+                    <div id="vicFlips" class="text-lg sm:text-xl font-black text-emerald-400 font-lab">14 ครั้ง</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">คะแนนรวม</div>
+                    <div id="vicScore" class="text-lg sm:text-xl font-black text-amber-400 font-lab">850</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button onclick="restartGame()" class="w-full py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-sm transition font-lab">
+                    <i class="fa-solid fa-rotate-right mr-1"></i>เล่นระดับนี้ซ้ำ
+                </button>
+                <button id="btnNextLevel" onclick="advanceNextLevel()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 via-emerald-400 to-cyan-500 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-black text-sm shadow-lg shadow-cyan-500/30 transition font-lab">
+                    ระดับถัดไป <i class="fa-solid fa-forward mr-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="w-full max-w-5xl mx-auto p-4 text-center text-xs text-slate-500 z-10 font-medium">
+        Memory Lab &copy; 2026 - สื่อเรียนรู้วิทยาศาสตร์เคมีในรูปแบบเกมจับคู่
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. CHEMICAL DATABASE REPOSITORY (Formulas, Names, Thai Names & Descriptions)
+           ========================================================================== */
+        const CHEMICAL_DATABASE = [
+            {
+                id: 'h2o',
+                formula: 'H₂O',
+                name: 'Water',
+                thaiName: 'น้ำ',
+                desc: 'โมเลกุลประกอบด้วยไฮโดรเจน 2 อะตอม และออกซิเจน 1 อะตอม เป็นสารประกอบสำคัญที่สุดสำหรับการดำรงชีวิตของสิ่งมีชีวิตทุกชนิด'
+            },
+            {
+                id: 'co2',
+                formula: 'CO₂',
+                name: 'Carbon Dioxide',
+                thaiName: 'คาร์บอนไดออกไซด์',
+                desc: 'แก๊สไม่มีสี ไม่มีกลิ่น ที่พืชใช้ในกระบวนการสังเคราะห์ด้วยแสง และเป็นผลผลิตจากการหายใจออกของสัตว์และมนุษย์'
+            },
+            {
+                id: 'nacl',
+                formula: 'NaCl',
+                name: 'Sodium Chloride',
+                thaiName: 'เกลือแกง (โซเดียมคลอไรด์)',
+                desc: 'สารประกอบไอออนิกที่ให้รสเค็มหลักในอาหาร ใช้ในการถนอมอาหาร รักษาสมดุล อิเล็กโทรไลต์ในร่างกาย'
+            },
+            {
+                id: 'ch4',
+                formula: 'CH₄',
+                name: 'Methane',
+                thaiName: 'มีเทน',
+                desc: 'สารประกอบไฮโดรคาร์บอนอย่างง่ายที่สุด เป็นส่วนประกอบหลักของแก๊สธรรมชาติและเป็นแก๊สเรือนกระจกสำคัญ'
+            },
+            {
+                id: 'o2',
+                formula: 'O₂',
+                name: 'Oxygen Gas',
+                thaiName: 'แก๊สออกซิเจน',
+                desc: 'โมเลกุลอะตอมคู่ของออกซิเจน จำเป็นต่อการหายใจของสิ่งมีชีวิตส่วนใหญ่ และการเผาไหม้ในปฏิกิริยาเคมี'
+            },
+            {
+                id: 'nh3',
+                formula: 'NH₃',
+                name: 'Ammonia',
+                thaiName: 'แอมโมเนีย',
+                desc: 'แก๊สไม่มีสี กลิ่นฉุนรุนแรง เป็นวัตถุดิบสำคัญในการผลิตปุ๋ยไนโตรเจน และสารทำความสะอาดอุตสาหกรรม'
+            },
+            {
+                id: 'c6h12o6',
+                formula: 'C₆H₁₂O₆',
+                name: 'Glucose',
+                thaiName: 'น้ำตาลกลูโคส',
+                desc: 'น้ำตาลโมเลกุลเดี่ยวที่เป็นแหล่งพลังงานหลักของเซลล์ในสิ่งมีชีวิต สร้างขึ้นโดยพืชผ่านกระบวนการสังเคราะห์ด้วยแสง'
+            },
+            {
+                id: 'hcl',
+                formula: 'HCl',
+                name: 'Hydrochloric Acid',
+                thaiName: 'กรดไฮโดรคลอริก (กรดเกลือ)',
+                desc: 'กรดแก่ที่มีฤทธิ์กัดกร่อนสูง พบในน้ำย่อยในกระเพาะอาหารของมนุษย์ เพื่อช่วยย่อยอาหารและฆ่าเชื้อแบคทีเรีย'
+            },
+            {
+                id: 'h2so4',
+                formula: 'H₂SO₄',
+                name: 'Sulfuric Acid',
+                thaiName: 'กรดซัลฟิวริก (กรดกำมะถัน)',
+                desc: 'กรดแร่อย่างแก่ ใช้เป็นสารเคมีหลักในอุตสาหกรรม การผลิตแบตเตอรี่รถยนต์ และปุ๋ยเคมี'
+            },
+            {
+                id: 'c2h5oh',
+                formula: 'C₂H₅OH',
+                name: 'Ethanol',
+                thaiName: 'เอทานอล (แอลกอฮอล์)',
+                desc: 'แอลกอฮอล์ชนิดกินได้ นำมาใช้เป็นตัวทำละลาย เชื้อเพลิงชีวภาพ และน้ำยาฆ่าเชื้อโรคทางทางการแพทย์'
+            },
+            {
+                id: 'nahco3',
+                formula: 'NaHCO₃',
+                name: 'Sodium Bicarbonate',
+                thaiName: 'เบกกิ้งโซดา',
+                desc: 'ผงสีขาวเป็นด่างอ่อนๆ ใช้เป็นผงฟูในการทำขนมอบ ช่วยลดกรดในกระเพาะอาหาร และใช้ทำความสะอาด'
+            },
+            {
+                id: 'caco3',
+                formula: 'CaCO₃',
+                name: 'Calcium Carbonate',
+                thaiName: 'แคลเซียมคาร์บอเนต (หินปูน)',
+                desc: 'สารประกอบเคมีที่เป็นองค์ประกอบหลักของเปลือกหอย หินปูน ชอล์กเขียนกระดาน และหินอ่อน'
+            }
+        ];
+
+        /* ==========================================================================
+           2. WEB AUDIO SYNTHESIZER ENGINE (No External Audio Files)
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playFlip() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const now = this.ctx.currentTime;
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(700, now + 0.08);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            playMatch() {
+                if (this.muted) return;
+                this.init();
+                const notes = [523.25, 659.25, 783.99]; // C5, E5, G5 Major Triad
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const now = this.ctx.currentTime + i * 0.07;
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                });
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const now = this.ctx.currentTime;
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.linearRampToValueAtTime(140, now + 0.22);
+
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.22);
+            }
+
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                const melody = [
+                    { freq: 523.25, duration: 0.12 },
+                    { freq: 659.25, duration: 0.12 },
+                    { freq: 783.99, duration: 0.12 },
+                    { freq: 1046.50, duration: 0.35 }
+                ];
+                let timeOffset = 0;
+                melody.forEach(note => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const now = this.ctx.currentTime + timeOffset;
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(note.freq, now);
+
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + note.duration);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + note.duration);
+
+                    timeOffset += note.duration * 0.85;
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        /* ==========================================================================
+           3. GAME STATE VARIABLES & LOGIC
+           ========================================================================== */
+        let currentLevel = 1;
+        let pairCount = 6; // Level 1 = 6, Level 2 = 8, Level 3 = 10
+        let cardsData = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let totalFlips = 0;
+        let score = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let isLockBoard = false;
+
+        // Level Configuration Map
+        const LEVEL_CONFIG = {
+            1: { pairs: 6, gridCols: 'grid-cols-3 sm:grid-cols-4', cardHeight: 'h-28 sm:h-36' },
+            2: { pairs: 8, gridCols: 'grid-cols-4', cardHeight: 'h-24 sm:h-32' },
+            3: { pairs: 10, gridCols: 'grid-cols-4 sm:grid-cols-5', cardHeight: 'h-24 sm:h-28' }
+        };
+
+        function setLevel(levelNum) {
+            currentLevel = levelNum;
+            pairCount = LEVEL_CONFIG[levelNum].pairs;
+
+            // Update Active Tab Buttons Styling
+            document.querySelectorAll('.btn-level').forEach((btn, idx) => {
+                if (idx + 1 === levelNum) {
+                    btn.className = 'btn-level px-3 py-1.5 rounded-lg font-lab font-bold text-xs transition bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20';
+                } else {
+                    btn.className = 'btn-level px-3 py-1.5 rounded-lg font-lab font-bold text-xs transition text-slate-400 hover:text-white hover:bg-slate-800';
+                }
+            });
+
+            restartGame();
+        }
+
+        function restartGame() {
+            clearInterval(timerInterval);
+            timerSeconds = 0;
+            matchedPairs = 0;
+            totalFlips = 0;
+            score = 0;
+            flippedCards = [];
+            isLockBoard = false;
+
+            document.getElementById('lblMatches').innerText = `0 / ${pairCount}`;
+            document.getElementById('lblTimer').innerText = '00:00';
+            document.getElementById('lblScore').innerText = '0';
+            document.getElementById('valFlips').innerText = '0';
+            document.getElementById('modalVictory').classList.add('hidden');
+            document.getElementById('modalFact').classList.add('hidden');
+
+            // Start Timer
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+                const secs = String(timerSeconds % 60).padStart(2, '0');
+                document.getElementById('lblTimer').innerText = `${mins}:${secs}`;
+            }, 1000);
+
+            generateCards();
+        }
+
+        function generateCards() {
+            // Pick random subset of chemicals based on pair count
+            const shuffledPool = [...CHEMICAL_DATABASE].sort(() => Math.random() - 0.5);
+            const selectedChemicals = shuffledPool.slice(0, pairCount);
+
+            cardsData = [];
+
+            selectedChemicals.forEach((chem, idx) => {
+                // Card Type A: Formula
+                cardsData.push({
+                    uniqueId: `card_${idx}_formula`,
+                    pairId: chem.id,
+                    type: 'formula',
+                    text: chem.formula,
+                    chemObj: chem
+                });
+
+                // Card Type B: Name (Thai + Eng)
+                cardsData.push({
+                    uniqueId: `card_${idx}_name`,
+                    pairId: chem.id,
+                    type: 'name',
+                    text: `${chem.thaiName}<br><span class="text-[11px] opacity-80 font-normal">(${chem.name})</span>`,
+                    chemObj: chem
+                });
+            });
+
+            // Shuffle final card deck
+            cardsData.sort(() => Math.random() - 0.5);
+
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('memoryGrid');
+            const config = LEVEL_CONFIG[currentLevel];
+
+            grid.className = `w-full max-w-4xl grid ${config.gridCols} gap-2.5 sm:gap-4 justify-center items-center`;
+            grid.innerHTML = '';
+
+            cardsData.forEach(card => {
+                const cardWrapper = document.createElement('div');
+                cardWrapper.className = `card-container ${config.cardHeight} w-full`;
+                cardWrapper.id = card.uniqueId;
+
+                const isFormula = card.type === 'formula';
+                const backBgClass = isFormula ? 'card-back-formula' : 'card-back-name';
+                const textColorClass = isFormula ? 'text-cyan-300 font-lab text-xl sm:text-2xl font-bold' : 'text-amber-300 font-sans text-xs sm:text-sm font-semibold text-center px-1';
+
+                cardWrapper.innerHTML = `
+                    <div class="card-inner">
+                        <!-- Front Face (Cover) -->
+                        <div class="card-front">
+                            <i class="fa-solid fa-atom text-2xl sm:text-3xl text-cyan-400/60 mb-1"></i>
+                            <span class="text-[9px] font-lab text-slate-500 uppercase tracking-widest font-semibold">LAB CARD</span>
+                        </div>
+                        <!-- Back Face (Revealed Content) -->
+                        <div class="card-back ${backBgClass}">
+                            <div class="text-[9px] uppercase tracking-wider font-bold text-slate-400 mb-1">
+                                ${isFormula ? '<i class="fa-solid fa-flask text-cyan-400 mr-1"></i>สูตรเคมี' : '<i class="fa-solid fa-tag text-amber-400 mr-1"></i>ชื่อสาร'}
+                            </div>
+                            <div class="${textColorClass}">
+                                ${card.text}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                cardWrapper.addEventListener('click', () => handleCardClick(card, cardWrapper));
+                grid.appendChild(cardWrapper);
+            });
+        }
+
+        function handleCardClick(cardObj, cardElem) {
+            // Prevent flipping if board locked, card already flipped, or matched
+            if (isLockBoard) return;
+            if (cardElem.classList.contains('flipped') || cardElem.classList.contains('matched')) return;
+
+            sound.playFlip();
+            cardElem.classList.add('flipped');
+            flippedCards.push({ data: cardObj, elem: cardElem });
+
+            if (flippedCards.length === 2) {
+                totalFlips++;
+                document.getElementById('valFlips').innerText = totalFlips;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            isLockBoard = true;
+            const [card1, card2] = flippedCards;
+
+            const isMatch = card1.data.pairId === card2.data.pairId && card1.data.type !== card2.data.type;
+
+            if (isMatch) {
+                // MATCH SUCCESS
+                sound.playMatch();
+                card1.elem.classList.add('matched');
+                card2.elem.classList.add('matched');
+
+                matchedPairs++;
+                score += 100;
+                document.getElementById('lblMatches').innerText = `${matchedPairs} / ${pairCount}`;
+                document.getElementById('lblScore').innerText = score;
+
+                // Show Fact Modal after slight delay
+                setTimeout(() => {
+                    showFactModal(card1.data.chemObj);
+                }, 400);
+
+                flippedCards = [];
+                isLockBoard = false;
+
+                // Check Victory Condition
+                if (matchedPairs === pairCount) {
+                    setTimeout(() => {
+                        handleVictory();
+                    }, 1200);
+                }
+
+            } else {
+                // MATCH FAILED
+                sound.playWrong();
+                
+                // Shake screen
+                const grid = document.getElementById('memoryGrid');
+                grid.classList.add('animate-shake');
+                setTimeout(() => grid.classList.remove('animate-shake'), 400);
+
+                // Unflip cards after 1 second
+                setTimeout(() => {
+                    card1.elem.classList.remove('flipped');
+                    card2.elem.classList.remove('flipped');
+                    flippedCards = [];
+                    isLockBoard = false;
+                }, 900);
+            }
+        }
+
+        function showFactModal(chemObj) {
+            document.getElementById('factFormula').innerText = chemObj.formula;
+            document.getElementById('factName').innerText = `${chemObj.thaiName} (${chemObj.name})`;
+            document.getElementById('factDescription').innerText = chemObj.desc;
+            document.getElementById('modalFact').classList.remove('hidden');
+        }
+
+        function closeFactModal() {
+            sound.playFlip();
+            document.getElementById('modalFact').classList.add('hidden');
+        }
+
+        function handleVictory() {
+            clearInterval(timerInterval);
+            sound.playVictory();
+
+            // Calculate Time Bonus
+            const timeBonus = Math.max(0, 300 - timerSeconds * 3);
+            const finalScore = score + timeBonus;
+
+            document.getElementById('vicTime').innerText = document.getElementById('lblTimer').innerText;
+            document.getElementById('vicFlips').innerText = `${totalFlips} ครั้ง`;
+            document.getElementById('vicScore').innerText = finalScore;
+            document.getElementById('vicLevelTitle').innerText = `คุณสามารถจับคู่สารเคมีใน Level ${currentLevel} ได้สำเร็จ!`;
+
+            // Star Rating Calculation
+            const star1 = document.getElementById('star1');
+            const star2 = document.getElementById('star2');
+            const star3 = document.getElementById('star3');
+
+            star1.className = 'fa-solid fa-star text-amber-400';
+            star2.className = totalFlips <= pairCount * 2.5 ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-600';
+            star3.className = totalFlips <= pairCount * 1.8 ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-600';
+
+            // Next level button display
+            const btnNext = document.getElementById('btnNextLevel');
+            if (currentLevel < 3) {
+                btnNext.classList.remove('hidden');
+            } else {
+                btnNext.classList.add('hidden');
+            }
+
+            document.getElementById('modalVictory').classList.remove('hidden');
+        }
+
+        function advanceNextLevel() {
+            if (currentLevel < 3) {
+                setLevel(currentLevel + 1);
+            }
+        }
+
+        function toggleSound() {
+            sound.muted = !sound.muted;
+            const icon = document.getElementById('iconSound');
+            if (sound.muted) {
+                icon.className = 'fa-solid fa-volume-xmark text-rose-400';
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-cyan-400';
+            }
+        }
+
+        // Initialize game on window load
+        window.addEventListener('load', () => {
+            restartGame();
+        });
+    </script>
+</body>
+</html>

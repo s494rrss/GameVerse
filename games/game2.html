@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIX IT! - เกมทดลองเคมี pH สุขสันต์</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt & Kanit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- MediaPipe for Hand Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            font-family: 'Prompt', 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .font-game {
+            font-family: 'Fredoka', 'Prompt', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        /* Glassmorphism panel */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+        }
+        /* Pulse glowing effects */
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+        }
+        .glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+        }
+        .glow-orange {
+            box-shadow: 0 0 20px rgba(249, 115, 22, 0.5);
+        }
+        /* Bottle Hover Animations */
+        .bottle-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .bottle-card:hover {
+            transform: translateY(-6px) scale(1.02);
+        }
+        .bottle-card:active {
+            transform: translateY(2px) scale(0.98);
+        }
+        /* Custom pH scale indicator needle transition */
+        #phNeedle {
+            transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        /* Floating particles */
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.8); opacity: 0.8; }
+            100% { transform: translateY(-80px) scale(1.2); opacity: 0; }
+        }
+        .animate-float {
+            animation: floatUp 2s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-800 min-h-screen overflow-x-hidden flex flex-col justify-between relative bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800 via-indigo-950 to-slate-950">
+
+    <!-- TOP HEADER / NAV BAR -->
+    <header class="w-full max-w-6xl mx-auto p-4 flex flex-wrap items-center justify-between gap-4 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 via-emerald-400 to-indigo-500 p-0.5 shadow-lg shadow-cyan-500/30 flex items-center justify-center">
+                <div class="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center">
+                    <i class="fa-solid fa-flask-vial text-2xl text-cyan-400"></i>
+                </div>
+            </div>
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-emerald-300 to-orange-400 font-game tracking-wider">
+                    MIX IT! <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">pH Science Lab</span>
+                </h1>
+                <p class="text-xs text-slate-400">เกมทดลองผสมสารเคมีปรับค่า pH</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Level Display Button -->
+            <button id="btnLevelSelect" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm font-semibold flex items-center gap-2 transition shadow-md">
+                <i class="fa-solid fa-layer-group text-cyan-400"></i>
+                <span id="lblCurrentLevel">ด่านที่ 1</span>
+            </button>
+
+            <!-- Hand Tracking Camera Toggle Button -->
+            <button id="btnToggleHand" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 border border-indigo-400/40">
+                <i class="fa-solid fa-hand text-yellow-300"></i>
+                <span id="lblHandStatus">เปิดกล้อง Hand Tracking</span>
+            </button>
+
+            <!-- Reset Beaker Button -->
+            <button id="btnResetBeaker" class="p-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition" title="ล้างบีกเกอร์">
+                <i class="fa-solid fa-rotate-right text-lg"></i>
+            </button>
+
+            <!-- Sound Mute Toggle -->
+            <button id="btnToggleSound" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="เปิด/ปิด เสียง">
+                <i id="iconSound" class="fa-solid fa-volume-high text-lg text-emerald-400"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN EXPERIMENT GAME CONTAINER -->
+    <main class="w-full max-w-6xl mx-auto px-4 py-2 flex-1 flex flex-col lg:flex-row gap-6 z-10 relative">
+
+        <!-- LEFT PANEL: GOAL & pH METER & BOTTLE RACK -->
+        <section class="lg:w-5/12 flex flex-col gap-4">
+
+            <!-- Mission / Goal Box -->
+            <div class="glass-panel rounded-3xl p-5 shadow-2xl relative overflow-hidden border border-cyan-500/30 bg-slate-900/90 text-white">
+                <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl"></div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-bullseye"></i> โจทก์ประจำด่าน
+                    </span>
+                    <span id="levelBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        Level 1
+                    </span>
+                </div>
+                <h2 id="levelTitle" class="text-xl font-bold text-white mb-1">ผสมสารให้ได้กรดอ่อน</h2>
+                <p id="levelDesc" class="text-sm text-slate-300 mb-3">เติมสารเคมีลงในบีกเกอร์ เพื่อปรับค่า pH ให้ตรงกับเป้าหมาย</p>
+
+                <!-- Target pH Range Card -->
+                <div class="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg font-bold border border-amber-500/30">
+                            pH
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-400">เป้าหมาย pH</div>
+                            <div id="targetPhRangeText" class="text-lg font-extrabold text-amber-300">2.0 - 3.5</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-slate-400">คะแนนเต็ม</div>
+                        <div id="maxLevelScore" class="text-sm font-bold text-emerald-400">1,000 pts</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DYNAMIC pH METER GAUGE -->
+            <div class="glass-panel rounded-3xl p-5 shadow-2xl bg-slate-900/90 text-white border border-slate-700/80 flex flex-col gap-3">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">มาตรวัดค่า pH ปัจจุบัน</span>
+                        <div class="flex items-baseline gap-2 mt-0.5">
+                            <span id="currentPhValue" class="text-4xl font-extrabold font-game text-cyan-400">7.00</span>
+                            <span id="phTypeTag" class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                                เป็นกลาง (Neutral)
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400">ปริมาตรรวม</span>
+                        <div id="currentVolumeText" class="text-base font-bold text-slate-200">100 mL</div>
+                    </div>
+                </div>
+
+                <!-- Color Rainbow pH Bar (0 to 14) -->
+                <div class="relative w-full h-8 rounded-2xl p-1 bg-slate-950 border border-slate-800 flex items-center shadow-inner mt-2">
+                    <div class="w-full h-full rounded-xl overflow-hidden flex" style="background: linear-gradient(to right, #ef4444 0%, #f97316 20%, #eab308 40%, #22c55e 50%, #06b6d4 65%, #3b82f6 80%, #a855f7 100%);">
+                    </div>
+                    <!-- Needle / Target Highlight Indicator -->
+                    <div id="phTargetBand" class="absolute top-0 bottom-0 bg-white/40 border-2 border-yellow-300 rounded-md pointer-events-none transition-all duration-300" style="left: 14%; width: 10%;"></div>
+                    <div id="phNeedle" class="absolute top-1/2 -translate-y-1/2 w-5 h-10 bg-white rounded-md shadow-2xl border-2 border-slate-900 flex items-center justify-center pointer-events-none" style="left: 50%; transform: translate(-50%, -50%);">
+                        <div class="w-1.5 h-6 bg-slate-900 rounded-full"></div>
+                    </div>
+                </div>
+
+                <!-- pH Labels -->
+                <div class="flex justify-between text-[11px] font-bold text-slate-400 px-1">
+                    <span class="text-rose-400">0 (กรดเข้ม)</span>
+                    <span class="text-amber-400">3</span>
+                    <span class="text-emerald-400">7 (กลาง)</span>
+                    <span class="text-cyan-400">10</span>
+                    <span class="text-purple-400">14 (เบสเข้ม)</span>
+                </div>
+            </div>
+
+            <!-- REAGENT BOTTLES SHELF -->
+            <div class="glass-panel rounded-3xl p-5 shadow-2xl bg-slate-900/90 text-white border border-slate-700/80 flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-vial-circle-check text-emerald-400"></i> สารเคมีที่มีให้ใช้ (คลิก/ลากเพื่อเท)
+                    </h3>
+                    <span class="text-xs text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-500/30">
+                        <i class="fa-solid fa-hand-pointer mr-1"></i> Drag / Pinch
+                    </span>
+                </div>
+
+                <!-- Bottles Grid -->
+                <div id="bottlesContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-3 flex-1 items-center">
+                    <!-- Dynamic Bottles will be injected here -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT PANEL: ANIMATED LAB BEAKER CANVAS & CONTROLS -->
+        <section class="lg:w-7/12 flex flex-col gap-4 relative">
+
+            <!-- BEAKER WORKSPACE DISPLAY -->
+            <div class="glass-panel rounded-3xl p-6 shadow-2xl bg-slate-900/90 border border-cyan-500/20 flex-1 flex flex-col items-center justify-center relative overflow-hidden min-h-[420px]">
+
+                <!-- Background Grid / Lab Vibe graphics -->
+                <div class="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] opacity-25"></div>
+
+                <!-- Hand Tracking Overlay Camera Box (Floating or Collapsible) -->
+                <div id="handCameraBox" class="hidden absolute top-4 right-4 w-40 h-32 bg-slate-950/90 rounded-2xl border-2 border-indigo-500/50 shadow-2xl overflow-hidden z-30">
+                    <video id="webcamVideo" class="w-full h-full object-cover -scale-x-100" playsinline></video>
+                    <canvas id="handCanvas" class="absolute inset-0 w-full h-full object-cover -scale-x-100 pointer-events-none"></canvas>
+                    <div class="absolute bottom-1 left-1 right-1 bg-slate-950/80 text-[10px] text-indigo-200 px-1.5 py-0.5 rounded text-center truncate">
+                        <span id="handStatusText">กำลังเริ่มต้น...</span>
+                    </div>
+                </div>
+
+                <!-- Hand Cursor Virtual Dot -->
+                <div id="virtualHandCursor" class="hidden fixed w-8 h-8 rounded-full border-2 border-yellow-300 bg-yellow-400/40 pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-75 shadow-lg flex items-center justify-center">
+                    <div class="w-2 h-2 rounded-full bg-white"></div>
+                </div>
+
+                <!-- MAIN LAB CANVAS (Beaker, wave liquid, bubbles, stream) -->
+                <canvas id="labCanvas" class="w-full h-[360px] max-w-[500px] z-10 cursor-crosshair"></canvas>
+
+                <!-- Action Controls Below Beaker -->
+                <div class="w-full flex items-center justify-between gap-4 mt-2 z-20">
+                    <button id="btnClearBeaker" class="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm border border-slate-700 transition flex items-center gap-2">
+                        <i class="fa-solid fa-trash-can text-rose-400"></i> เทสารทิ้ง (เริ่มใหม่)
+                    </button>
+
+                    <button id="btnSubmitMix" class="px-8 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-extrabold text-base shadow-xl shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 font-game">
+                        <i class="fa-solid fa-check-circle text-lg"></i> ส่งคำตอบทดลอง!
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- FOOTER / INFO -->
+    <footer class="w-full max-w-6xl mx-auto p-4 text-center text-xs text-slate-500 z-10">
+        MIX IT! - เกมการเรียนรู้วิทยาศาสตร์เรื่องความเป็นกรด-เบส (pH Scale) | ควบคุมด้วยเมาส์, สัมผัส หรือ Hand Tracking
+    </footer>
+
+    <!-- MODAL: LEVEL SELECTOR -->
+    <div id="modalLevelSelect" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-2xl bg-slate-900 border border-cyan-500/40 rounded-3xl p-6 shadow-2xl text-white relative flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                <h3 class="text-2xl font-extrabold font-game text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">
+                    <i class="fa-solid fa-flask text-cyan-400 mr-2"></i> เลือกห้องทดลอง (10 ด่าน)
+                </h3>
+                <button id="btnCloseLevelModal" class="w-9 h-9 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Level Cards Grid -->
+            <div id="levelGridContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto p-1 flex-1">
+                <!-- Injected levels -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: LEVEL COMPLETE / SCORE RESULTS -->
+    <div id="modalResult" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md bg-slate-900 border-2 border-emerald-500/50 rounded-3xl p-6 shadow-2xl text-white text-center relative overflow-hidden">
+            <div class="w-24 h-24 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-4xl mx-auto mb-4 shadow-xl shadow-emerald-500/20">
+                <i id="resIcon" class="fa-solid fa-trophy text-amber-300"></i>
+            </div>
+
+            <h3 id="resHeading" class="text-2xl font-extrabold font-game text-white mb-1">การทดลองสำเร็จ!</h3>
+            <p id="resSubtext" class="text-sm text-slate-300 mb-4">คุณปรับค่า pH ได้แม่นยำมาก</p>
+
+            <!-- Star Rating Display -->
+            <div id="resStars" class="flex justify-center gap-2 text-3xl text-amber-400 mb-6">
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star text-slate-700"></i>
+            </div>
+
+            <!-- Detailed Stats -->
+            <div class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700 mb-6 text-left space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">ค่า pH ที่ได้:</span>
+                    <span id="resPhValue" class="font-bold text-cyan-300">7.10</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">เป้าหมาย pH:</span>
+                    <span id="resPhTarget" class="font-bold text-amber-300">6.80 - 7.20</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">ความแม่นยำ:</span>
+                    <span id="resAccuracy" class="font-bold text-emerald-400">98%</span>
+                </div>
+                <div class="flex justify-between border-t border-slate-700 pt-2 text-base font-extrabold">
+                    <span class="text-white">คะแนนที่ได้รับ:</span>
+                    <span id="resTotalScore" class="text-emerald-400 font-game">950 pts</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btnRetryLevel" class="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm border border-slate-700 transition">
+                    <i class="fa-solid fa-rotate-right mr-1"></i> ลองอีกครั้ง
+                </button>
+                <button id="btnNextLevel" class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-extrabold text-sm shadow-lg shadow-emerald-500/30 transition font-game">
+                    ด่านถัดไป <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. SOUND SYNTHESIZER (Web Audio API)
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Pouring sound effect (filtered pink noise)
+            playPour() {
+                if (this.muted) return;
+                this.init();
+                const bufferSize = this.ctx.sampleRate * 0.15;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(800 + Math.random() * 400, this.ctx.currentTime);
+                filter.Q.value = 3.0;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+
+            // Bubble sound effect
+            playBubble() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const now = this.ctx.currentTime;
+
+                const startFreq = 300 + Math.random() * 300;
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(startFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(startFreq * 2.5, now + 0.08);
+
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            // Success Chime
+            playWin() {
+                if (this.muted) return;
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const now = this.ctx.currentTime + idx * 0.1;
+
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        /* ==========================================================================
+           2. CHEMICAL & pH TITRATION ENGINE
+           ========================================================================== */
+        // Reagents Database
+        const REAGENTS = {
+            water: { id: 'water', name: 'น้ำบริสุทธิ์', ph: 7.0, color: '#38bdf8', icon: 'fa-droplet' },
+            lemon: { id: 'lemon', name: 'น้ำมะนาว', ph: 2.0, color: '#facc15', icon: 'fa-lemon' },
+            vinegar: { id: 'vinegar', name: 'น้ำส้มสายชู', ph: 2.5, color: '#fb923c', icon: 'fa-bottle-droplet' },
+            coffee: { id: 'coffee', name: 'กาแฟ', ph: 5.0, color: '#a16207', icon: 'fa-mug-hot' },
+            milk: { id: 'milk', name: 'นมสด', ph: 6.5, color: '#f8fafc', icon: 'fa-glass-water' },
+            baking_soda: { id: 'baking_soda', name: 'เบกกิ้งโซดา', ph: 9.0, color: '#2dd4bf', icon: 'fa-jar' },
+            soap: { id: 'soap', name: 'น้ำสบู่', ph: 10.5, color: '#818cf8', icon: 'fa-pump-soap' },
+            ammonia: { id: 'ammonia', name: 'แอมโมเนีย', ph: 11.5, color: '#c084fc', icon: 'fa-vial' },
+            bleach: { id: 'bleach', name: 'น้ำยาฟอกขาว', ph: 12.5, color: '#e879f9', icon: 'fa-bottle-water' }
+        };
+
+        // Realistic chemical concentration mixture model for pH
+        function calculateMixedPh(solutionList) {
+            if (!solutionList || solutionList.length === 0) return 7.0;
+
+            let totalVol = 0;
+            let totalH = 0;   // Moles of H+ ions
+            let totalOH = 0;  // Moles of OH- ions
+
+            solutionList.forEach(item => {
+                const vol = item.volume; // mL
+                const ph = item.ph;
+                totalVol += vol;
+
+                if (ph <= 7.0) {
+                    // Acidic or neutral
+                    const hConc = Math.pow(10, -ph);
+                    totalH += hConc * vol;
+                } else {
+                    // Basic
+                    const pOH = 14.0 - ph;
+                    const ohConc = Math.pow(10, -pOH);
+                    totalOH += ohConc * vol;
+                }
+            });
+
+            if (totalVol === 0) return 7.0;
+
+            // Neutralization reaction between H+ and OH-
+            if (totalH > totalOH) {
+                const netH = (totalH - totalOH) / totalVol;
+                let ph = -Math.log10(Math.max(netH, 1e-14));
+                return Math.min(Math.max(ph, 0), 14);
+            } else if (totalOH > totalH) {
+                const netOH = (totalOH - totalH) / totalVol;
+                let pOH = -Math.log10(Math.max(netOH, 1e-14));
+                let ph = 14.0 - pOH;
+                return Math.min(Math.max(ph, 0), 14);
+            } else {
+                return 7.0;
+            }
+        }
+
+        // Color Universal Indicator mapping based on pH
+        function getPhColor(ph) {
+            // Colors from 0 to 14
+            const colors = [
+                { ph: 0, r: 239, g: 68, b: 68 },    // Red
+                { ph: 2, r: 249, g: 115, b: 22 },   // Orange
+                { ph: 4, r: 234, g: 179, b: 8 },    // Amber
+                { ph: 6, r: 132, g: 204, b: 22 },   // Lime
+                { ph: 7, r: 34, g: 197, b: 94 },    // Green
+                { ph: 8, r: 6, g: 182, b: 212 },    // Cyan
+                { ph: 10, r: 59, g: 130, b: 246 },  // Blue
+                { ph: 12, r: 168, g: 85, b: 247 },  // Purple
+                { ph: 14, r: 217, g: 70, b: 239 }   // Magenta
+            ];
+
+            ph = Math.min(Math.max(ph, 0), 14);
+
+            for (let i = 0; i < colors.length - 1; i++) {
+                if (ph >= colors[i].ph && ph <= colors[i+1].ph) {
+                    const factor = (ph - colors[i].ph) / (colors[i+1].ph - colors[i].ph);
+                    const r = Math.round(colors[i].r + factor * (colors[i+1].r - colors[i].r));
+                    const g = Math.round(colors[i].g + factor * (colors[i+1].g - colors[i].g));
+                    const b = Math.round(colors[i].b + factor * (colors[i+1].b - colors[i].b));
+                    return `rgb(${r}, ${g}, ${b})`;
+                }
+            }
+            return 'rgb(34, 197, 94)';
+        }
+
+        function getPhCategoryName(ph) {
+            if (ph < 3.0) return 'กรดแก่ (Strong Acid)';
+            if (ph < 6.5) return 'กรดอ่อน (Acidic)';
+            if (ph <= 7.5) return 'เป็นกลาง (Neutral)';
+            if (ph <= 11.0) return 'เบสอ่อน (Basic)';
+            return 'เบสแก่ (Strong Base)';
+        }
+
+        /* ==========================================================================
+           3. GAME LEVEL DEFINITIONS (10 Levels)
+           ========================================================================== */
+        const GAME_LEVELS = [
+            {
+                id: 1,
+                title: 'ทดลองเริ่มต้น: สร้างกรดอ่อน',
+                desc: 'เริ่มต้นจากน้ำเปล่า 100mL ผสมสารเพื่อให้ได้สารละลายกรด pH ในช่วง 2.0 - 3.5',
+                initial: [{ id: 'water', volume: 100, ph: 7.0 }],
+                targetMin: 2.0,
+                targetMax: 3.5,
+                reagents: ['vinegar', 'lemon', 'water']
+            },
+            {
+                id: 2,
+                title: 'ด่าน 2: สร้างสารละลายเบสอ่อน',
+                desc: 'ผสมสารเคมีในบีกเกอร์ให้ออกฤทธิ์เป็นเบสอ่อน pH 8.5 - 9.5',
+                initial: [{ id: 'water', volume: 100, ph: 7.0 }],
+                targetMin: 8.5,
+                targetMax: 9.5,
+                reagents: ['baking_soda', 'water', 'lemon']
+            },
+            {
+                id: 3,
+                title: 'ด่าน 3: สะเทินน้ำส้มสายชู!',
+                desc: 'มีน้ำส้มสายชู (pH 2.5) อยู่ในบีกเกอร์ ให้เติมเบสปรับค่าจนใกล้เป็นกลาง pH 6.8 - 7.2',
+                initial: [{ id: 'vinegar', volume: 100, ph: 2.5 }],
+                targetMin: 6.8,
+                targetMax: 7.2,
+                reagents: ['baking_soda', 'soap', 'water']
+            },
+            {
+                id: 4,
+                title: 'ด่าน 4: กาแฟสูตรพิเศษ',
+                desc: 'ผสมสารเคมีให้ได้ระดับความเป็นกรดอ่อนใกล้เคียงกาแฟสด pH 4.8 - 5.5',
+                initial: [{ id: 'water', volume: 80, ph: 7.0 }],
+                targetMin: 4.8,
+                targetMax: 5.5,
+                reagents: ['coffee', 'lemon', 'baking_soda', 'water']
+            },
+            {
+                id: 5,
+                title: 'ด่าน 5: สูตรฟองสบู่ล้างมือ',
+                desc: 'ผสมน้ำสบู่อ่อนๆ ให้ได้ pH เหมาะสมสำหรับล้างมือในช่วง 9.5 - 10.2',
+                initial: [{ id: 'water', volume: 50, ph: 7.0 }],
+                targetMin: 9.5,
+                targetMax: 10.2,
+                reagents: ['soap', 'vinegar', 'water']
+            },
+            {
+                id: 6,
+                title: 'ด่าน 6: แก้น้ำมะนาวหก!',
+                desc: 'บีกเกอร์มีน้ำมะนาวเข้มข้น (pH 2.0) 120mL ปรับค่าให้เป็นกลาง pH 6.9 - 7.3',
+                initial: [{ id: 'lemon', volume: 120, ph: 2.0 }],
+                targetMin: 6.9,
+                targetMax: 7.3,
+                reagents: ['bleach', 'baking_soda', 'water']
+            },
+            {
+                id: 7,
+                title: 'ด่าน 7: น้ำสำหรับเลี้ยงปลาสวยงาม',
+                desc: 'น้ำในบีกเกอร์เป็นเบสเกินไป (pH 8.8) ให้ปรับให้เหมาะกับปลาในช่วง pH 6.8 - 7.2',
+                initial: [{ id: 'baking_soda', volume: 100, ph: 8.8 }],
+                targetMin: 6.8,
+                targetMax: 7.2,
+                reagents: ['vinegar', 'coffee', 'water']
+            },
+            {
+                id: 8,
+                title: 'ด่าน 8: น้ำยาทำความสะอาดเข้มข้น',
+                desc: 'ผสมสารละลายให้เป็นเบสเข้มข้นสำหรับขัดพื้น pH 11.0 - 11.8',
+                initial: [{ id: 'water', volume: 100, ph: 7.0 }],
+                targetMin: 11.0,
+                targetMax: 11.8,
+                reagents: ['ammonia', 'bleach', 'lemon', 'water']
+            },
+            {
+                id: 9,
+                title: 'ด่าน 9: นักเคมีสายแม่นยำ',
+                desc: 'ต้องปรับค่า pH ให้ได้ตรงเป้าหมายเป๊ะๆ ในช่วง pH 3.8 - 4.2',
+                initial: [{ id: 'baking_soda', volume: 80, ph: 9.0 }],
+                targetMin: 3.8,
+                targetMax: 4.2,
+                reagents: ['vinegar', 'lemon', 'water']
+            },
+            {
+                id: 10,
+                title: 'ด่าน 10: ปรมาจารย์แห่ง pH!',
+                desc: 'สารละลายปริศนาเบสเข้มข้น (pH 12.0) จงสะเทินให้ได้กลางเป๊ะ pH 6.9 - 7.1',
+                initial: [{ id: 'bleach', volume: 100, ph: 12.0 }],
+                targetMin: 6.9,
+                targetMax: 7.1,
+                reagents: ['vinegar', 'lemon', 'coffee', 'water']
+            }
+        ];
+
+        /* ==========================================================================
+           4. GAME STATE & VARIABLES
+           ========================================================================== */
+        let currentLevelIdx = 0;
+        let solutionContents = [];
+        let activePouringReagent = null;
+        let activePourAmount = 0;
+
+        // Hand tracking state
+        let isHandTrackingActive = false;
+        let handCursor = { x: 0, y: 0, isPinching: false };
+        let activeHandGrabbedReagent = null;
+
+        // High scores / progress
+        let levelProgress = JSON.parse(localStorage.getItem('mix_it_progress') || '{}');
+
+        /* ==========================================================================
+           5. LAB CANVAS GRAPHICS ENGINE (Beaker & Fluid Waves)
+           ========================================================================== */
+        const canvas = document.getElementById('labCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let waveOffset = 0;
+        let bubbles = [];
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 100);
+
+        // Spawn ambient bubbles inside liquid
+        function createBubble(beakerX, beakerY, beakerW, liquidHeight) {
+            if (liquidHeight <= 10) return;
+            bubbles.push({
+                x: beakerX + 15 + Math.random() * (beakerW - 30),
+                y: beakerY + 280 - Math.random() * liquidHeight * 0.5,
+                radius: 2 + Math.random() * 4,
+                speed: 0.8 + Math.random() * 1.5,
+                alpha: 0.7
+            });
+            if (bubbles.length > 25) bubbles.shift();
+        }
+
+        function drawLabScene() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Beaker dimensions
+            const beakerW = 200;
+            const beakerH = 260;
+            const beakerX = (width - beakerW) / 2;
+            const beakerY = height - beakerH - 30;
+
+            // Compute current mixture volume & pH
+            const currentPh = calculateMixedPh(solutionContents);
+            const totalVolume = solutionContents.reduce((sum, item) => sum + item.volume, 0);
+            const liquidColor = getPhColor(currentPh);
+
+            // Max beaker capacity: 400 mL
+            const fillRatio = Math.min(totalVolume / 400, 1.0);
+            const liquidMaxH = beakerH - 40;
+            const liquidH = fillRatio * liquidMaxH;
+
+            // 1. DRAW BEAKER LIQUID
+            if (liquidH > 2) {
+                ctx.save();
+
+                // Clip area inside beaker
+                ctx.beginPath();
+                ctx.moveTo(beakerX + 12, beakerY + 20);
+                ctx.lineTo(beakerX + 12, beakerY + beakerH - 15);
+                ctx.quadraticCurveTo(beakerX + 12, beakerY + beakerH, beakerX + 25, beakerY + beakerH);
+                ctx.lineTo(beakerX + beakerW - 25, beakerY + beakerH);
+                ctx.quadraticCurveTo(beakerX + beakerW - 12, beakerY + beakerH, beakerX + beakerW - 12, beakerY + beakerH - 15);
+                ctx.lineTo(beakerX + beakerW - 12, beakerY + 20);
+                ctx.closePath();
+                ctx.clip();
+
+                // Animated Liquid Body with Sine Waves
+                const liquidTopY = beakerY + beakerH - liquidH;
+
+                ctx.beginPath();
+                ctx.moveTo(beakerX, beakerY + beakerH);
+                ctx.lineTo(beakerX, liquidTopY);
+
+                // Wave surface
+                waveOffset += 0.05;
+                for (let x = beakerX; x <= beakerX + beakerW; x += 5) {
+                    const y = liquidTopY + Math.sin((x * 0.04) + waveOffset) * 4;
+                    ctx.lineTo(x, y);
+                }
+
+                ctx.lineTo(beakerX + beakerW, beakerY + beakerH);
+                ctx.closePath();
+
+                // Liquid fill gradient
+                const grad = ctx.createLinearGradient(0, liquidTopY, 0, beakerY + beakerH);
+                grad.addColorStop(0, liquidColor);
+                grad.addColorStop(1, 'rgba(15, 23, 42, 0.4)');
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Draw Bubbles
+                if (Math.random() < 0.3) {
+                    createBubble(beakerX, beakerY, beakerW, liquidH);
+                }
+
+                bubbles.forEach((b, idx) => {
+                    b.y -= b.speed;
+                    b.alpha -= 0.003;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${b.alpha})`;
+                    ctx.fill();
+
+                    if (b.y < liquidTopY || b.alpha <= 0) {
+                        bubbles.splice(idx, 1);
+                    }
+                });
+
+                ctx.restore();
+            }
+
+            // 2. DRAW POURING STREAM (if currently pouring)
+            if (activePouringReagent) {
+                const reagentObj = REAGENTS[activePouringReagent];
+                const streamX = width / 2;
+                const streamYStart = 40;
+                const streamYEnd = beakerY + beakerH - liquidH;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(streamX - 3, streamYStart);
+                ctx.lineTo(streamX + 3, streamYStart);
+                ctx.lineTo(streamX + 5, streamYEnd);
+                ctx.lineTo(streamX - 5, streamYEnd);
+                ctx.closePath();
+
+                const streamGrad = ctx.createLinearGradient(0, streamYStart, 0, streamYEnd);
+                streamGrad.addColorStop(0, reagentObj.color);
+                streamGrad.addColorStop(1, getPhColor(reagentObj.ph));
+                ctx.fillStyle = streamGrad;
+                ctx.fill();
+
+                // Splash splash effect at liquid surface
+                ctx.beginPath();
+                ctx.arc(streamX, streamYEnd, 8 + Math.random() * 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 3. DRAW BEAKER GLASS OUTLINE & TIC MARKS
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+
+            // Glass beaker body path
+            ctx.beginPath();
+            // Top lip
+            ctx.moveTo(beakerX - 10, beakerY);
+            ctx.lineTo(beakerX + 15, beakerY + 10);
+            ctx.lineTo(beakerX + 12, beakerY + beakerH - 15);
+            ctx.quadraticCurveTo(beakerX + 12, beakerY + beakerH, beakerX + 25, beakerY + beakerH);
+            ctx.lineTo(beakerX + beakerW - 25, beakerY + beakerH);
+            ctx.quadraticCurveTo(beakerX + beakerW - 12, beakerY + beakerH, beakerX + beakerW - 12, beakerY + beakerH - 15);
+            ctx.lineTo(beakerX + beakerW - 12, beakerY + 10);
+            ctx.lineTo(beakerX + beakerW + 5, beakerY);
+            ctx.stroke();
+
+            // Measurement Ticks (mL marks)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '10px Prompt';
+
+            const marks = [100, 200, 300, 400];
+            marks.forEach(ml => {
+                const markY = beakerY + beakerH - ((ml / 400) * liquidMaxH);
+                ctx.beginPath();
+                ctx.moveTo(beakerX + 14, markY);
+                ctx.lineTo(beakerX + 30, markY);
+                ctx.stroke();
+                ctx.fillText(`${ml} mL`, beakerX + 35, markY + 3);
+            });
+
+            // Glass shine highlights
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(beakerX + 25, beakerY + 30);
+            ctx.lineTo(beakerX + 25, beakerY + beakerH - 30);
+            ctx.stroke();
+
+            ctx.restore();
+
+            requestAnimationFrame(drawLabScene);
+        }
+
+        requestAnimationFrame(drawLabScene);
+
+        /* ==========================================================================
+           6. UI CONTROLS & REAGENT BOTTLE MANAGEMENT
+           ========================================================================== */
+        function renderReagentBottles() {
+            const level = GAME_LEVELS[currentLevelIdx];
+            const container = document.getElementById('bottlesContainer');
+            container.innerHTML = '';
+
+            level.reagents.forEach(reagentKey => {
+                const r = REAGENTS[reagentKey];
+                const card = document.createElement('div');
+                card.className = 'bottle-card p-3 rounded-2xl bg-slate-800/90 border border-slate-700/80 cursor-pointer flex flex-col items-center justify-between gap-1 shadow-lg relative group overflow-hidden';
+                card.dataset.reagentId = r.id;
+
+                card.innerHTML = `
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-1 transition group-hover:scale-110" style="background-color: ${r.color}22; color: ${r.color}; border: 1px solid ${r.color}44">
+                        <i class="fa-solid ${r.icon}"></i>
+                    </div>
+                    <div class="text-xs font-bold text-slate-100 text-center truncate w-full">${r.name}</div>
+                    <div class="text-[10px] px-2 py-0.5 rounded-full bg-slate-900/80 font-mono text-slate-300 border border-slate-700">
+                        pH ${r.ph.toFixed(1)}
+                    </div>
+                    <button class="btn-pour mt-1.5 w-full py-1 text-[11px] font-bold rounded-lg bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-300 border border-cyan-500/30 transition flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-bottle-droplet"></i> เทสาร (+20mL)
+                    </button>
+                `;
+
+                // Pour click event
+                card.querySelector('.btn-pour').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    pourReagent(r.id, 20);
+                });
+
+                // Drag/Touch support
+                card.addEventListener('mousedown', () => startDragBottle(r.id));
+
+                container.appendChild(card);
+            });
+        }
+
+        function pourReagent(reagentId, volume = 20) {
+            const reagent = REAGENTS[reagentId];
+            if (!reagent) return;
+
+            // Check max volume capacity (400 mL)
+            const currentVol = solutionContents.reduce((sum, item) => sum + item.volume, 0);
+            if (currentVol + volume > 400) {
+                showToast('บีกเกอร์เต็มแล้ว! (สูงสุด 400 mL)');
+                return;
+            }
+
+            activePouringReagent = reagentId;
+            sound.playPour();
+            sound.playBubble();
+
+            // Add chemical to mixture
+            solutionContents.push({ id: reagent.id, volume: volume, ph: reagent.ph });
+
+            setTimeout(() => {
+                activePouringReagent = null;
+            }, 300);
+
+            updatePhGaugeDisplay();
+        }
+
+        function updatePhGaugeDisplay() {
+            const currentPh = calculateMixedPh(solutionContents);
+            const totalVol = solutionContents.reduce((sum, item) => sum + item.volume, 0);
+
+            // Update UI elements
+            document.getElementById('currentPhValue').innerText = currentPh.toFixed(2);
+            document.getElementById('phTypeTag').innerText = getPhCategoryName(currentPh);
+            document.getElementById('currentVolumeText').innerText = `${Math.round(totalVol)} mL`;
+
+            // Dynamic color for pH text
+            document.getElementById('currentPhValue').style.color = getPhColor(currentPh);
+
+            // Update pH meter needle position
+            const needle = document.getElementById('phNeedle');
+            const pct = Math.min(Math.max((currentPh / 14.0) * 100, 0), 100);
+            needle.style.left = `${pct}%`;
+        }
+
+        function loadLevel(levelIdx) {
+            currentLevelIdx = levelIdx;
+            const level = GAME_LEVELS[currentLevelIdx];
+
+            // Reset liquid solution
+            solutionContents = JSON.parse(JSON.stringify(level.initial));
+
+            // Update UI Labels
+            document.getElementById('lblCurrentLevel').innerText = `ด่านที่ ${level.id}`;
+            document.getElementById('levelBadge').innerText = `Level ${level.id}`;
+            document.getElementById('levelTitle').innerText = level.title;
+            document.getElementById('levelDesc').innerText = level.desc;
+            document.getElementById('targetPhRangeText').innerText = `${level.targetMin.toFixed(1)} - ${level.targetMax.toFixed(1)}`;
+
+            // Update Target Band on pH meter
+            const targetBand = document.getElementById('phTargetBand');
+            const minPct = (level.targetMin / 14.0) * 100;
+            const maxPct = (level.targetMax / 14.0) * 100;
+            targetBand.style.left = `${minPct}%`;
+            targetBand.style.width = `${maxPct - minPct}%`;
+
+            renderReagentBottles();
+            updatePhGaugeDisplay();
+        }
+
+        /* ==========================================================================
+           7. HAND TRACKING ENGINE (MediaPipe Hands with Pinch Gesture)
+           ========================================================================== */
+        const videoElement = document.getElementById('webcamVideo');
+        const handCanvasElement = document.getElementById('handCanvas');
+        const handCtx = handCanvasElement.getContext('2d');
+        const virtualCursor = document.getElementById('virtualHandCursor');
+
+        let cameraInstance = null;
+        let handsDetector = null;
+
+        function initHandTracking() {
+            handsDetector = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+
+            handsDetector.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.6
+            });
+
+            handsDetector.onResults(onHandResults);
+
+            cameraInstance = new Camera(videoElement, {
+                onFrame: async () => {
+                    await handsDetector.send({ image: videoElement });
+                },
+                width: 320,
+                height: 240
+            });
+        }
+
+        function onHandResults(results) {
+            handCtx.save();
+            handCtx.clearRect(0, 0, handCanvasElement.width, handCanvasElement.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                document.getElementById('handStatusText').innerText = 'ตรวจพบมือ! (หนีบนิ้วเพื่อจับ)';
+                const landmarks = results.multiHandLandmarks[0];
+
+                // Landmarks 4: Thumb Tip, 8: Index Tip
+                const thumb = landmarks[4];
+                const index = landmarks[8];
+
+                // Screen position calculation
+                const screenX = (1 - index.x) * window.innerWidth;
+                const screenY = index.y * window.innerHeight;
+
+                // Pinch distance
+                const dist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
+                const isPinching = dist < 0.08;
+
+                // Update virtual cursor
+                virtualCursor.classList.remove('hidden');
+                virtualCursor.style.left = `${screenX}px`;
+                virtualCursor.style.top = `${screenY}px`;
+
+                if (isPinching) {
+                    virtualCursor.classList.add('bg-emerald-400', 'scale-125');
+                    virtualCursor.classList.remove('bg-yellow-400/40');
+
+                    // Check if hovering over bottles or beaker
+                    handleHandPinchInteraction(screenX, screenY);
+                } else {
+                    virtualCursor.classList.remove('bg-emerald-400', 'scale-125');
+                    virtualCursor.classList.add('bg-yellow-400/40');
+                    activeHandGrabbedReagent = null;
+                }
+            } else {
+                document.getElementById('handStatusText').innerText = 'กรุณายื่นมือให้เห็นในกล้อง';
+                virtualCursor.classList.add('hidden');
+            }
+            handCtx.restore();
+        }
+
+        function handleHandPinchInteraction(x, y) {
+            // Find element at pinch point
+            const elem = document.elementFromPoint(x, y);
+            if (!elem) return;
+
+            const bottleCard = elem.closest('.bottle-card');
+            if (bottleCard) {
+                const reagentId = bottleCard.dataset.reagentId;
+                if (reagentId) {
+                    pourReagent(reagentId, 15);
+                }
+            }
+
+            const btnSubmit = elem.closest('#btnSubmitMix');
+            if (btnSubmit) {
+                submitExperiment();
+            }
+        }
+
+        // Toggle Hand Tracking Camera
+        document.getElementById('btnToggleHand').addEventListener('click', () => {
+            const cameraBox = document.getElementById('handCameraBox');
+            if (!isHandTrackingActive) {
+                isHandTrackingActive = true;
+                cameraBox.classList.remove('hidden');
+                document.getElementById('lblHandStatus').innerText = 'ปิดกล้อง Hand Tracking';
+
+                if (!cameraInstance) {
+                    initHandTracking();
+                }
+                cameraInstance.start();
+            } else {
+                isHandTrackingActive = false;
+                cameraBox.classList.add('hidden');
+                virtualCursor.classList.add('hidden');
+                document.getElementById('lblHandStatus').innerText = 'เปิดกล้อง Hand Tracking';
+                if (cameraInstance) {
+                    cameraInstance.stop();
+                }
+            }
+        });
+
+        /* ==========================================================================
+           8. GAME SCORE EVALUATION & MODALS
+           ========================================================================== */
+        function submitExperiment() {
+            const currentPh = calculateMixedPh(solutionContents);
+            const level = GAME_LEVELS[currentLevelIdx];
+
+            const targetMid = (level.targetMin + level.targetMax) / 2;
+            const targetTolerance = (level.targetMax - level.targetMin) / 2;
+
+            const diff = Math.abs(currentPh - targetMid);
+
+            let stars = 0;
+            let score = 0;
+            let isSuccess = false;
+
+            if (currentPh >= level.targetMin && currentPh <= level.targetMax) {
+                isSuccess = true;
+                if (diff <= targetTolerance * 0.3) {
+                    stars = 3;
+                    score = 1000;
+                } else if (diff <= targetTolerance * 0.7) {
+                    stars = 2;
+                    score = 850;
+                } else {
+                    stars = 1;
+                    score = 700;
+                }
+            } else {
+                isSuccess = false;
+                stars = 0;
+                score = Math.max(100, Math.round(500 - diff * 100));
+            }
+
+            // Save Progress
+            if (isSuccess) {
+                sound.playWin();
+                levelProgress[level.id] = { stars: Math.max(stars, levelProgress[level.id]?.stars || 0), unlocked: true };
+                if (currentLevelIdx + 1 < GAME_LEVELS.length) {
+                    levelProgress[GAME_LEVELS[currentLevelIdx + 1].id] = levelProgress[GAME_LEVELS[currentLevelIdx + 1].id] || { unlocked: true };
+                }
+                localStorage.setItem('mix_it_progress', JSON.stringify(levelProgress));
+            }
+
+            // Render Result Modal
+            showResultModal(isSuccess, stars, score, currentPh, level);
+        }
+
+        function showResultModal(isSuccess, stars, score, phVal, level) {
+            const modal = document.getElementById('modalResult');
+            modal.classList.remove('hidden');
+
+            document.getElementById('resHeading').innerText = isSuccess ? 'การทดลองสำเร็จ!' : 'ยังไม่ตรงเป้าหมาย!';
+            document.getElementById('resSubtext').innerText = isSuccess ? 'คุณปรับค่า pH ได้ยอดเยี่ยมมาก' : 'พยายามใหม่อีกครั้งเพื่อปรับค่า pH ให้ตรงเป้า';
+
+            document.getElementById('resPhValue').innerText = phVal.toFixed(2);
+            document.getElementById('resPhTarget').innerText = `${level.targetMin.toFixed(1)} - ${level.targetMax.toFixed(1)}`;
+
+            const accuracyPct = Math.max(0, Math.min(100, Math.round(100 - (Math.abs(phVal - (level.targetMin + level.targetMax)/2) * 15))));
+            document.getElementById('resAccuracy').innerText = `${accuracyPct}%`;
+            document.getElementById('resTotalScore').innerText = `${score} pts`;
+
+            // Stars
+            const starsContainer = document.getElementById('resStars');
+            starsContainer.innerHTML = '';
+            for (let i = 1; i <= 3; i++) {
+                const starIcon = document.createElement('i');
+                starIcon.className = i <= stars ? 'fa-solid fa-star text-amber-400 animate-bounce' : 'fa-solid fa-star text-slate-700';
+                starsContainer.appendChild(starIcon);
+            }
+        }
+
+        // Render Level Selection Grid
+        function renderLevelGrid() {
+            const container = document.getElementById('levelGridContainer');
+            container.innerHTML = '';
+
+            GAME_LEVELS.forEach((lvl, idx) => {
+                const prog = levelProgress[lvl.id] || { unlocked: idx === 0 };
+                const isUnlocked = idx === 0 || prog.unlocked;
+
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border transition flex items-center justify-between cursor-pointer ${
+                    isUnlocked ? 'bg-slate-800/90 border-slate-700 hover:border-cyan-500' : 'bg-slate-900/50 border-slate-800 opacity-60 pointer-events-none'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 font-bold font-game flex items-center justify-center border border-cyan-500/30">
+                            ${lvl.id}
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-white">${lvl.title}</div>
+                            <div class="text-xs text-slate-400">เป้าหมาย: pH ${lvl.targetMin} - ${lvl.targetMax}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 text-amber-400">
+                        ${isUnlocked ? `<i class="fa-solid fa-star ${prog.stars >= 1 ? '' : 'text-slate-700'}"></i>
+                                       <i class="fa-solid fa-star ${prog.stars >= 2 ? '' : 'text-slate-700'}"></i>
+                                       <i class="fa-solid fa-star ${prog.stars >= 3 ? '' : 'text-slate-700'}"></i>`
+                                     : '<i class="fa-solid fa-lock text-slate-600"></i>'}
+                    </div>
+                `;
+
+                if (isUnlocked) {
+                    card.addEventListener('click', () => {
+                        loadLevel(idx);
+                        document.getElementById('modalLevelSelect').classList.add('hidden');
+                    });
+                }
+
+                container.appendChild(card);
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-rose-600 text-white px-4 py-2 rounded-xl shadow-2xl text-sm font-bold z-50 animate-bounce';
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        /* ==========================================================================
+           9. EVENT LISTENERS & INITIALIZATION
+           ========================================================================== */
+        document.getElementById('btnSubmitMix').addEventListener('click', submitExperiment);
+
+        document.getElementById('btnClearBeaker').addEventListener('click', () => {
+            solutionContents = [];
+            updatePhGaugeDisplay();
+        });
+
+        document.getElementById('btnResetBeaker').addEventListener('click', () => {
+            loadLevel(currentLevelIdx);
+        });
+
+        document.getElementById('btnToggleSound').addEventListener('click', () => {
+            sound.muted = !sound.muted;
+            const icon = document.getElementById('iconSound');
+            if (sound.muted) {
+                icon.className = 'fa-solid fa-volume-xmark text-lg text-rose-400';
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-lg text-emerald-400';
+            }
+        });
+
+        document.getElementById('btnLevelSelect').addEventListener('click', () => {
+            renderLevelGrid();
+            document.getElementById('modalLevelSelect').classList.remove('hidden');
+        });
+
+        document.getElementById('btnCloseLevelModal').addEventListener('click', () => {
+            document.getElementById('modalLevelSelect').classList.add('hidden');
+        });
+
+        document.getElementById('btnRetryLevel').addEventListener('click', () => {
+            document.getElementById('modalResult').classList.add('hidden');
+            loadLevel(currentLevelIdx);
+        });
+
+        document.getElementById('btnNextLevel').addEventListener('click', () => {
+            document.getElementById('modalResult').classList.add('hidden');
+            if (currentLevelIdx + 1 < GAME_LEVELS.length) {
+                loadLevel(currentLevelIdx + 1);
+            } else {
+                loadLevel(0);
+            }
+        });
+
+        // Initialize Level 1 on load
+        window.onload = () => {
+            loadLevel(0);
+        };
+    </script>
+</body>
+</html>

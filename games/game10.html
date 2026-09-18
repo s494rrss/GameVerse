@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Planet Sort - เกมเรียงลำดับดาวเคราะห์ระบบสุริยะ</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Prompt:wght@300;400;500;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Prompt', 'Fredoka', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+
+        /* Glassmorphism panel styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Animated Starfield Background */
+        .star-bg {
+            background-image: 
+                radial-gradient(1.5px 1.5px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 40px 70px, rgba(255,255,255,0.8), rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 90px 40px, rgba(56,189,248,0.9), rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 160px 120px, rgba(245,158,11,0.8), rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 230px 190px, rgba(255,255,255,0.9), rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 300px 300px;
+        }
+
+        /* Draggable Planet Card */
+        .planet-card {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        .planet-card:active, .planet-card.dragging {
+            cursor: grabbing;
+            transform: scale(1.08) rotate(2deg);
+            z-index: 50;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.5);
+        }
+
+        .planet-card.selected-tap {
+            border-color: #38bdf8 !important;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.8);
+            transform: scale(1.06);
+            animation: pulseSelected 1.2s infinite;
+        }
+
+        @keyframes pulseSelected {
+            0%, 100% { box-shadow: 0 0 15px rgba(56, 189, 248, 0.6); }
+            50% { box-shadow: 0 0 25px rgba(56, 189, 248, 1); }
+        }
+
+        /* Target Drop Slot */
+        .drop-slot {
+            transition: all 0.2s ease;
+            min-height: 110px;
+        }
+
+        .drop-slot.drag-over {
+            background-color: rgba(56, 189, 248, 0.2);
+            border-color: #38bdf8;
+            transform: scale(1.03);
+        }
+
+        .drop-slot.slot-correct {
+            border-color: #10b981;
+            background-color: rgba(16, 185, 129, 0.15);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .drop-slot.slot-wrong {
+            border-color: #f43f5e;
+            background-color: rgba(244, 63, 94, 0.15);
+            animation: shakeError 0.4s ease-in-out;
+        }
+
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        /* Floating Score Text Animation */
+        @keyframes floatUpFade {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.3); }
+        }
+
+        .float-score-anim {
+            animation: floatUpFade 0.8s ease-out forwards;
+            pointer-events: none;
+        }
+
+        /* Solar Canvas Container */
+        #solarCanvas {
+            background: radial-gradient(circle at center, #0b0f19 0%, #020617 100%);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col justify-between relative star-bg overflow-x-hidden">
+
+    <!-- Ambient Nebular Background Lights -->
+    <div class="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-gray-950 to-gray-950 pointer-events-none z-0"></div>
+
+    <!-- HEADER HUD -->
+    <header class="w-full max-w-5xl mx-auto p-3 sm:p-4 relative z-10">
+        <div class="glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xl border-cyan-500/20">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-amber-500 via-purple-500 to-cyan-400 p-0.5 shadow-lg flex items-center justify-center">
+                    <div class="w-full h-full bg-gray-950 rounded-[10px] flex items-center justify-center text-cyan-400">
+                        <i class="fa-solid fa-globe text-lg sm:text-2xl animate-spin" style="animation-duration: 20s;"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-cyan-300 to-indigo-400 font-orbitron tracking-wider">
+                        PLANET SORT
+                    </h1>
+                    <p class="text-[10px] sm:text-xs text-gray-400 font-medium">เกมจัดเรียงดาวเคราะห์ระบบสุริยะ</p>
+                </div>
+            </div>
+
+            <!-- Game Stats Counters -->
+            <div class="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0">
+                
+                <!-- Mission Badge -->
+                <div class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-gray-900/90 border border-gray-800 text-center min-w-[65px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">ภารกิจ (MISSION)</div>
+                    <div id="lblMission" class="text-xs sm:text-sm font-black text-amber-400 font-orbitron">1/3</div>
+                </div>
+
+                <!-- Combo Multiplier -->
+                <div class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-gray-900/90 border border-gray-800 text-center min-w-[55px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">COMBO</div>
+                    <div id="lblCombo" class="text-xs sm:text-sm font-black text-cyan-400 font-orbitron">x1</div>
+                </div>
+
+                <!-- Score Counter -->
+                <div class="px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl bg-gray-900/90 border border-emerald-500/30 text-center min-w-[80px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">คะแนน (SCORE)</div>
+                    <div id="lblScore" class="text-sm sm:text-lg font-black text-emerald-400 font-orbitron">0</div>
+                </div>
+
+                <!-- Timer Counter -->
+                <div class="px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl bg-gray-900/90 border border-cyan-500/30 text-center min-w-[65px]">
+                    <div class="text-[9px] text-gray-400 font-bold uppercase">เวลา (TIME)</div>
+                    <div id="lblTimer" class="text-sm sm:text-lg font-black text-cyan-300 font-orbitron">0.0s</div>
+                </div>
+
+                <!-- Sound Toggle -->
+                <button id="btnSound" onclick="toggleSound()" class="p-2 sm:p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-cyan-400 transition cursor-pointer">
+                    <i id="iconSound" class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GAMEPLAY AREA -->
+    <main class="w-full max-w-5xl mx-auto px-3 sm:px-4 py-2 flex-1 flex flex-col justify-between relative z-10 gap-3">
+        
+        <!-- MISSION INSTRUCTION BANNER -->
+        <div class="glass-panel rounded-2xl p-3 sm:p-4 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-2 shadow-xl">
+            <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-sm">
+                    <i id="missionIcon" class="fa-solid fa-sun"></i>
+                </span>
+                <div>
+                    <h2 id="missionTitle" class="text-sm sm:text-base font-bold text-amber-300">ภารกิจที่ 1: เรียงลำดับจากใกล้ดวงอาทิตย์ ➔ ไกลดวงอาทิตย์</h2>
+                    <p id="missionSubtitle" class="text-xs text-gray-400">ลากหรือแตะดาวเคราะห์ใส่ในช่องให้ถูกต้องตามลำดับระยะห่าง</p>
+                </div>
+            </div>
+
+            <!-- Mode Quick Select Buttons -->
+            <div class="flex items-center gap-1.5 ml-auto text-xs">
+                <button onclick="switchMission(1)" class="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-cyan-300 border border-gray-700 font-medium cursor-pointer">
+                    <i class="fa-solid fa-ruler-horizontal mr-1"></i> ระยะห่าง
+                </button>
+                <button onclick="switchMission(2)" class="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-cyan-300 border border-gray-700 font-medium cursor-pointer">
+                    <i class="fa-solid fa-up-right-and-down-left-from-center mr-1"></i> ขนาด
+                </button>
+                <button onclick="switchMission(3)" class="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-cyan-300 border border-gray-700 font-medium cursor-pointer">
+                    <i class="fa-solid fa-layer-group mr-1"></i> ประเภท
+                </button>
+            </div>
+        </div>
+
+        <!-- Floating Score Container -->
+        <div id="floatScoreContainer" class="absolute inset-0 pointer-events-none z-30"></div>
+
+        <!-- TARGET DROP SLOTS CONTAINER -->
+        <div id="targetSlotsSection" class="glass-panel rounded-3xl p-3 sm:p-5 border border-indigo-500/30 shadow-2xl min-h-[160px]">
+            <!-- Dynamic Slots Populated by JS -->
+            <div id="slotsGrid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
+                <!-- Slots inserted dynamically -->
+            </div>
+        </div>
+
+        <!-- UNASSIGNED PLANET POOL (CARDS TO BE SORTED) -->
+        <div class="glass-panel rounded-3xl p-3 sm:p-5 border border-cyan-500/30 shadow-2xl min-h-[160px]">
+            <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
+                <span class="text-xs sm:text-sm font-bold text-cyan-400 flex items-center gap-2">
+                    <i class="fa-solid fa-meteor"></i> คลังดาวเคราะห์ที่รอการจัดเรียง (สุ่มตำแหน่ง):
+                </span>
+                <button onclick="shufflePlanetPool()" class="text-xs bg-gray-800 hover:bg-gray-700 text-amber-300 px-3 py-1 rounded-lg border border-gray-700 transition cursor-pointer flex items-center gap-1.5">
+                    <i class="fa-solid fa-shuffle"></i> สับสุ่มตำแหน่ง
+                </button>
+            </div>
+
+            <div id="planetPoolGrid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3 min-h-[110px]">
+                <!-- Planet cards inserted dynamically -->
+            </div>
+        </div>
+
+        <!-- ACTION BUTTONS -->
+        <div class="flex items-center justify-between gap-3">
+            <button onclick="resetCurrentRound()" class="px-4 py-2.5 rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-xs sm:text-sm border border-gray-700 transition cursor-pointer flex items-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> รีเซ็ตช่องวาง
+            </button>
+
+            <button id="btnCheckAnswer" onclick="checkRoundAnswer()" class="flex-1 max-w-sm py-3 sm:py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-cyan-400 to-emerald-400 hover:from-amber-400 hover:to-emerald-300 text-gray-950 font-black text-sm sm:text-base shadow-lg shadow-cyan-500/20 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-circle-check text-lg"></i> ตรวจคำตอบ (VERIFY)
+            </button>
+        </div>
+
+    </main>
+
+    <!-- START / WELCOME MODAL -->
+    <div id="modalStart" class="fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-amber-500/40 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-500 via-cyan-400 to-indigo-500 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-gray-950 rounded-[14px] flex items-center justify-center text-4xl text-amber-400">
+                    <i class="fa-solid fa-solar-system text-amber-400 animate-pulse"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-cyan-300 to-emerald-400 font-orbitron mb-2">
+                PLANET SORT
+            </h2>
+            <p class="text-xs sm:text-sm text-gray-300 mb-5 leading-relaxed bg-gray-900/80 p-3.5 rounded-2xl border border-gray-800">
+                สวมบทบาทเป็นนักดาราศาสตร์! ลากและจัดเรียงดาวเคราะห์ทั้ง 8 ดวงในระบบสุริยะให้ถูกต้องตามภารกิจระยะห่าง ขนาด และประเภทดาวเคราะห์
+            </p>
+
+            <div class="space-y-2 text-xs text-gray-300 text-left mb-6 bg-gray-950/80 p-3.5 rounded-2xl border border-cyan-500/30">
+                <div class="font-bold text-cyan-400 text-center mb-1">🎮 วิธีการเล่น:</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-hand-pointer text-amber-400"></i> ลากดาวเคราะห์หรือแตะเพื่อเลือก แล้วกดวางในช่องเป้าหมาย</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-sun text-yellow-400"></i> ภารกิจที่ 1: เรียงตามระยะห่างจากดวงอาทิตย์ (พุธ ➔ เนปจูน)</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-up-right-and-down-left-from-center text-emerald-400"></i> ภารกิจที่ 2: เรียงตามขนาดจากเล็กไปใหญ่</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-layer-group text-indigo-400"></i> ภารกิจที่ 3: แยกประเภทดาวเคราะห์หิน vs ดาวเคราะห์แก๊ส</div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-cyan-400 to-emerald-400 hover:from-amber-400 hover:to-emerald-300 text-gray-950 font-black text-lg shadow-lg shadow-cyan-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                START SORTING <i class="fa-solid fa-play ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- SOLAR SYSTEM ANIMATION MODAL (CELEBRATION) -->
+    <div id="modalSolarAnimation" class="hidden fixed inset-0 bg-gray-950/95 backdrop-blur-lg z-50 flex flex-col items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-4xl rounded-3xl p-4 sm:p-6 border-2 border-amber-500/50 text-center relative overflow-hidden shadow-2xl flex flex-col items-center">
+            
+            <button onclick="closeSolarAnimationModal()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center cursor-pointer border border-gray-700">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h3 class="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-cyan-300 font-orbitron mb-1">
+                SOLAR SYSTEM SIMULATION ☀️
+            </h3>
+            <p class="text-xs text-gray-300 mb-3">ยินดีด้วย! คุณเรียงลำดับดาวเคราะห์ตามระยะห่างถูกต้อง ชมการโคจรรอบดวงอาทิตย์จำลอง</p>
+
+            <!-- Canvas Solar Orbit -->
+            <div class="w-full aspect-[16/9] max-h-[360px] rounded-2xl overflow-hidden border border-cyan-500/30 mb-4 relative shadow-inner">
+                <canvas id="solarCanvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-center gap-3 w-full">
+                <button onclick="nextMissionFromModal()" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-400 text-gray-950 font-black text-sm font-orbitron shadow-lg cursor-pointer hover:brightness-110">
+                    NEXT MISSION <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLANET KNOWLEDGE INFO MODAL -->
+    <div id="modalPlanetInfo" class="hidden fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 border-2 border-cyan-500/40 text-center relative overflow-hidden shadow-2xl">
+            <button onclick="closePlanetInfoModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div id="modalPlanetIcon" class="w-24 h-24 mx-auto mb-3 flex items-center justify-center"></div>
+
+            <h3 id="modalPlanetName" class="text-2xl font-black text-amber-400 font-orbitron mb-1">Mercury</h3>
+            <div id="modalPlanetType" class="text-xs font-bold text-cyan-300 uppercase tracking-wider mb-4">ดาวเคราะห์หิน (Rocky Planet)</div>
+
+            <div class="bg-gray-900/90 rounded-2xl p-4 border border-gray-800 text-left text-xs sm:text-sm space-y-2 mb-5">
+                <div class="flex justify-between border-b border-gray-800 pb-1.5 text-gray-300">
+                    <span class="text-gray-400">เส้นผ่านศูนย์กลาง:</span>
+                    <span id="modalPlanetSize" class="font-bold text-emerald-400">4,879 km</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-800 pb-1.5 text-gray-300">
+                    <span class="text-gray-400">ระยะห่างจากดวงอาทิตย์:</span>
+                    <span id="modalPlanetDist" class="font-bold text-amber-300">0.39 AU</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-800 pb-1.5 text-gray-300">
+                    <span class="text-gray-400">จำนวนดวงจันทร์บริวาร:</span>
+                    <span id="modalPlanetMoons" class="font-bold text-cyan-300">0 ดวง</span>
+                </div>
+                <p id="modalPlanetDesc" class="text-xs text-gray-300 leading-relaxed pt-1">
+                    ดาวเคราะห์ที่อยู่ใกล้ดวงอาทิตย์ที่สุด ไม่มีชั้นบรรยากาศหนาแน่น...
+                </p>
+            </div>
+
+            <button onclick="closePlanetInfoModal()" class="w-full py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-black text-sm font-orbitron cursor-pointer">
+                CLOSE INFO
+            </button>
+        </div>
+    </div>
+
+    <!-- GAME OVER / SUMMARY MODAL -->
+    <div id="modalGameOver" class="hidden fixed inset-0 bg-gray-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border-2 border-emerald-500/40 text-center relative overflow-hidden shadow-2xl">
+            
+            <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-0.5 mx-auto mb-4 shadow-xl flex items-center justify-center">
+                <div class="w-full h-full bg-gray-950 rounded-[14px] flex items-center justify-center text-4xl text-emerald-400">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300 font-orbitron mb-1">
+                SOLAR MASTER!
+            </h2>
+            <p class="text-xs text-gray-400 mb-4">คุณผ่านภารกิจจัดเรียงดาวเคราะห์ระบบสุริยะทั้งหมดเรียบร้อย</p>
+
+            <div class="bg-gray-900/90 rounded-2xl p-4 border border-gray-800 space-y-2.5 mb-5 text-xs sm:text-sm">
+                <div class="flex justify-between items-center text-gray-300">
+                    <span><i class="fa-solid fa-star text-amber-400 mr-1.5"></i> คะแนนรวมทั้งหมด:</span>
+                    <span id="goTotalScore" class="font-black text-emerald-400 text-base sm:text-lg font-orbitron">0</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300">
+                    <span><i class="fa-solid fa-fire text-amber-500 mr-1.5"></i> คอมโบสูงสุด:</span>
+                    <span id="goMaxCombo" class="font-bold text-amber-400 font-orbitron">x1</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300">
+                    <span><i class="fa-regular fa-clock text-cyan-400 mr-1.5"></i> เวลารวมที่ใช้:</span>
+                    <span id="goTotalTime" class="font-bold text-cyan-300 font-orbitron">0.0s</span>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-cyan-400 to-emerald-400 hover:from-amber-400 hover:to-emerald-300 text-gray-950 font-black text-lg shadow-lg shadow-cyan-500/25 cursor-pointer font-orbitron tracking-wider transition transform active:scale-95">
+                PLAY AGAIN <i class="fa-solid fa-rotate-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="w-full max-w-5xl mx-auto p-3 text-center text-[11px] text-gray-500 font-medium z-10">
+        Planet Sort &copy; 2026 - สื่อการเรียนรู้ดาราศาสตร์และระบบสุริยะ HTML5
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. WEB AUDIO SYNTHESIZER ENGINE
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playPickup() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.exponentialRampToValueAtTime(480, now + 0.08);
+
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            playDrop() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(250, now + 0.1);
+
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+
+                    gain.gain.setValueAtTime(0.12, now + idx * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.15);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.06);
+                    osc.stop(now + idx * 0.06 + 0.15);
+                });
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(120, now + 0.2);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.3);
+                });
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        function toggleSound() {
+            audio.muted = !audio.muted;
+            const icon = document.getElementById('iconSound');
+            icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-rose-400' : 'fa-solid fa-volume-high text-cyan-400';
+        }
+
+        /* ==========================================================================
+           2. PLANET DATA & MISSIONS DEFINITION
+           ========================================================================== */
+        const PLANETS = [
+            {
+                id: 'mercury',
+                name: 'พุธ (Mercury)',
+                nameEn: 'Mercury',
+                type: 'rocky',
+                typeText: 'ดาวเคราะห์หิน (Rocky Planet)',
+                distanceOrder: 1, // AU: 0.39
+                sizeOrder: 1,     // Diameter: 4,879 km
+                distanceAU: 0.39,
+                diameterKm: '4,879 km',
+                moons: 0,
+                color: '#a1a1aa',
+                desc: 'ดาวเคราะห์ที่อยู่ใกล้ดวงอาทิตย์ที่สุด พื้นผิวขรุขระเต็มไปด้วยแอ่งอุกกาบาต ไม่มีบรรยากาศหนาแน่น',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="38" fill="url(#gradMercury)"/><circle cx="38" cy="40" r="6" fill="#71717a" opacity="0.6"/><circle cx="62" cy="58" r="8" fill="#71717a" opacity="0.5"/><circle cx="50" cy="65" r="4" fill="#52525b" opacity="0.6"/><defs><radialGradient id="gradMercury" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#e4e4e7"/><stop offset="60%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#475569"/></radialGradient></defs></svg>`
+            },
+            {
+                id: 'venus',
+                name: 'ศุกร์ (Venus)',
+                nameEn: 'Venus',
+                type: 'rocky',
+                typeText: 'ดาวเคราะห์หิน (Rocky Planet)',
+                distanceOrder: 2, // AU: 0.72
+                sizeOrder: 3,     // Diameter: 12,104 km
+                distanceAU: 0.72,
+                diameterKm: '12,104 km',
+                moons: 0,
+                color: '#f59e0b',
+                desc: 'ดาวเคราะห์ที่ร้อนที่สุดในระบบสุริยะเนื่องจากปรากฏการณ์เรือนกระจกจากแก๊สคาร์บอนไดออกไซด์หนาแน่น',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="42" fill="url(#gradVenus)"/><path d="M 20 40 Q 50 30 80 40 Q 50 50 20 40" fill="#d97706" opacity="0.4"/><path d="M 15 60 Q 50 50 85 60 Q 50 70 15 60" fill="#b45309" opacity="0.4"/><defs><radialGradient id="gradVenus" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fef08a"/><stop offset="50%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#92400e"/></radialGradient></defs></svg>`
+            },
+            {
+                id: 'earth',
+                name: 'โลก (Earth)',
+                nameEn: 'Earth',
+                type: 'rocky',
+                typeText: 'ดาวเคราะห์หิน (Rocky Planet)',
+                distanceOrder: 3, // AU: 1.00
+                sizeOrder: 4,     // Diameter: 12,742 km
+                distanceAU: 1.00,
+                diameterKm: '12,742 km',
+                moons: 1,
+                color: '#06b6d4',
+                desc: 'บ้านของเรา เป็นดาวเคราะห์เพียงดวงเดียวที่ยืนยันว่ามีสิ่งมีชีวิตและน้ำในสถานะของเหลวบนพื้นผิว',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="43" fill="#0284c7"/><path d="M 30 25 Q 45 20 55 35 T 35 55 Z" fill="#16a34a"/><path d="M 55 55 Q 75 50 80 70 T 50 85 Z" fill="#15803d"/><path d="M 20 65 Q 35 60 40 75 Z" fill="#16a34a"/><path d="M 25 30 Q 50 25 70 35" stroke="#ffffff" stroke-width="4" fill="none" opacity="0.6" stroke-linecap="round"/><defs><radialGradient id="gradEarth" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/></radialGradient></defs></svg>`
+            },
+            {
+                id: 'mars',
+                name: 'อังคาร (Mars)',
+                nameEn: 'Mars',
+                type: 'rocky',
+                typeText: 'ดาวเคราะห์หิน (Rocky Planet)',
+                distanceOrder: 4, // AU: 1.52
+                sizeOrder: 2,     // Diameter: 6,779 km
+                distanceAU: 1.52,
+                diameterKm: '6,779 km',
+                moons: 2,
+                color: '#ef4444',
+                desc: 'ดาวเคราะห์สีแดง มีพื้นผิวเต็มไปด้วยไอรอนออกไซด์ (สนิมเหล็ก) มีภูเขาไฟโอลิมปัสที่สูงที่สุดในระบบสุริยะ',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="39" fill="url(#gradMars)"/><circle cx="45" cy="35" r="5" fill="#991b1b" opacity="0.6"/><circle cx="60" cy="60" r="8" fill="#7f1d1d" opacity="0.5"/><circle cx="50" cy="15" r="7" fill="#ffffff" opacity="0.7"/><defs><radialGradient id="gradMars" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fca5a5"/><stop offset="50%" stop-color="#ef4444"/><stop offset="100%" stop-color="#7f1d1d"/></radialGradient></defs></svg>`
+            },
+            {
+                id: 'jupiter',
+                name: 'พฤหัสบดี (Jupiter)',
+                nameEn: 'Jupiter',
+                type: 'gas',
+                typeText: 'ดาวเคราะห์แก๊สยักษ์ (Gas Giant)',
+                distanceOrder: 5, // AU: 5.20
+                sizeOrder: 8,     // Diameter: 139,820 km (Largest)
+                distanceAU: 5.20,
+                diameterKm: '139,820 km',
+                moons: 95,
+                color: '#ea580c',
+                desc: 'ดาวเคราะห์ที่ใหญ่ที่สุดในระบบสุริยะ มีจุดแดงใหญ่ (Great Red Spot) ซึ่งเป็นพายุหมุนขนาดมหึมา',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="46" fill="url(#gradJupiter)"/><path d="M 5 35 Q 50 28 95 35 L 95 45 Q 50 38 5 45 Z" fill="#c2410c" opacity="0.6"/><path d="M 5 55 Q 50 48 95 55 L 95 65 Q 50 58 5 65 Z" fill="#9a3412" opacity="0.7"/><ellipse cx="68" cy="60" rx="9" ry="6" fill="#dc2626"/><defs><radialGradient id="gradJupiter" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#ffedd5"/><stop offset="40%" stop-color="#fb923c"/><stop offset="100%" stop-color="#9a3412"/></radialGradient></defs></svg>`
+            },
+            {
+                id: 'saturn',
+                name: 'เสาร์ (Saturn)',
+                nameEn: 'Saturn',
+                type: 'gas',
+                typeText: 'ดาวเคราะห์แก๊สยักษ์ (Gas Giant)',
+                distanceOrder: 6, // AU: 9.58
+                sizeOrder: 7,     // Diameter: 116,460 km
+                distanceAU: 9.58,
+                diameterKm: '116,460 km',
+                moons: 146,
+                color: '#eab308',
+                desc: 'โดดเด่นด้วยวงแหวนขนาดใหญ่สวยงามที่ประกอบด้วยน้ำแข็ง เศษหิน และฝุ่นอวกาศ',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><g transform="rotate(-18 50 50)"><ellipse cx="50" cy="50" rx="48" ry="14" fill="none" stroke="#fef08a" stroke-width="6" opacity="0.8"/><ellipse cx="50" cy="50" rx="42" ry="11" fill="none" stroke="#ca8a04" stroke-width="4"/><circle cx="50" cy="50" r="30" fill="url(#gradSaturn)"/><path d="M 50 50 m -48 0 a 48 14 0 0 0 96 0" fill="none" stroke="#fef08a" stroke-width="6" opacity="0.9"/></g><defs><radialGradient id="gradSaturn" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#fef9c3"/><stop offset="60%" stop-color="#eab308"/><stop offset="100%" stop-color="#854d0e"/></radialGradient></defs></svg>`
+            },
+            {
+                id: 'uranus',
+                name: 'ยูเรนัส (Uranus)',
+                nameEn: 'Uranus',
+                type: 'gas',
+                typeText: 'ดาวเคราะห์น้ำแข็งยักษ์ (Ice Giant)',
+                distanceOrder: 7, // AU: 19.22
+                sizeOrder: 6,     // Diameter: 50,724 km
+                distanceAU: 19.22,
+                diameterKm: '50,724 km',
+                moons: 28,
+                color: '#06b6d4',
+                desc: 'ดาวเคราะห์น้ำแข็งยักษ์สีฟ้าแกมเขียว หมุนตะแคงเกือบ 90 องศากับระนาบการโคจร',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="41" fill="url(#gradUranus)"/><ellipse cx="50" cy="50" rx="10" ry="46" fill="none" stroke="#a5f3fc" stroke-width="2" opacity="0.5"/><defs><radialGradient id="gradUranus" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#cffaff"/><stop offset="50%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#0e7490"/></radialGradient></defs></svg>`
+            },
+            {
+                id: 'neptune',
+                name: 'เนปจูน (Neptune)',
+                nameEn: 'Neptune',
+                type: 'gas',
+                typeText: 'ดาวเคราะห์น้ำแข็งยักษ์ (Ice Giant)',
+                distanceOrder: 8, // AU: 30.05
+                sizeOrder: 5,     // Diameter: 49,244 km
+                distanceAU: 30.05,
+                diameterKm: '49,244 km',
+                moons: 16,
+                color: '#3b82f6',
+                desc: 'ดาวเคราะห์ที่อยู่ไกลที่สุดในระบบสุริยะ มีสีน้ำเงินเข้มและมีกระแสลมพายุที่เร็วที่สุดในระบบสุริยะ',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="40" fill="url(#gradNeptune)"/><path d="M 15 45 Q 50 35 85 45" stroke="#93c5fd" stroke-width="3" fill="none" opacity="0.5"/><circle cx="65" cy="55" r="6" fill="#1e3a8a" opacity="0.7"/><defs><radialGradient id="gradNeptune" cx="35%" cy="35%" r="65%"><stop offset="0%" stop-color="#93c5fd"/><stop offset="50%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1e3a8a"/></radialGradient></defs></svg>`
+            }
+        ];
+
+        /* ==========================================================================
+           3. GAME STATE MANAGEMENT
+           ========================================================================== */
+        let currentMissionIndex = 1; // 1: Distance, 2: Size, 3: Type
+        let score = 0;
+        let combo = 1;
+        let maxCombo = 1;
+        let totalTimeSeconds = 0;
+        let gameTimerInterval = null;
+        let isGameActive = false;
+
+        // Current Slot state arrays
+        let currentPoolPlanets = [];
+        let slotAssignments = {}; // slotIndex -> planetId or object
+        let selectedTapPlanetId = null; // for tap-to-select mobile control
+
+        function startGame() {
+            score = 0;
+            combo = 1;
+            maxCombo = 1;
+            totalTimeSeconds = 0;
+            currentMissionIndex = 1;
+            isGameActive = true;
+
+            document.getElementById('lblScore').innerText = '0';
+            document.getElementById('lblCombo').innerText = 'x1';
+            document.getElementById('lblMission').innerText = '1/3';
+            document.getElementById('lblTimer').innerText = '0.0s';
+
+            document.getElementById('modalStart').classList.add('hidden');
+            document.getElementById('modalGameOver').classList.add('hidden');
+
+            setupMission(currentMissionIndex);
+
+            // Start main game timer
+            clearInterval(gameTimerInterval);
+            const startTime = Date.now();
+            gameTimerInterval = setInterval(() => {
+                if (!isGameActive) return;
+                totalTimeSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+                document.getElementById('lblTimer').innerText = `${totalTimeSeconds}s`;
+            }, 100);
+        }
+
+        function switchMission(missionNum) {
+            currentMissionIndex = missionNum;
+            setupMission(missionNum);
+        }
+
+        function setupMission(missionNum) {
+            slotAssignments = {};
+            selectedTapPlanetId = null;
+
+            document.getElementById('lblMission').innerText = `${missionNum}/3`;
+
+            const iconEl = document.getElementById('missionIcon');
+            const titleEl = document.getElementById('missionTitle');
+            const subEl = document.getElementById('missionSubtitle');
+
+            if (missionNum === 1) {
+                iconEl.className = 'fa-solid fa-sun text-yellow-400';
+                titleEl.innerText = 'ภารกิจที่ 1: เรียงลำดับจากใกล้ดวงอาทิตย์ ➔ ไกลดวงอาทิตย์';
+                subEl.innerText = 'ลากหรือแตะดาวเคราะห์ใส่ในช่องที่ 1 ถึง 8 ตามลำดับระยะห่างจากดวงอาทิตย์';
+            } else if (missionNum === 2) {
+                iconEl.className = 'fa-solid fa-up-right-and-down-left-from-center text-emerald-400';
+                titleEl.innerText = 'ภารกิจที่ 2: เรียงลำดับตามขนาดจากเล็กสุด ➔ ใหญ่สุด';
+                subEl.innerText = 'เรียงดาวเคราะห์ตามเส้นผ่านศูนย์กลางจริงจากขนาดเล็กสุดไปจนถึงใหญ่ที่สุด';
+            } else if (missionNum === 3) {
+                iconEl.className = 'fa-solid fa-layer-group text-indigo-400';
+                titleEl.innerText = 'ภารกิจที่ 3: แยกประเภทดาวเคราะห์หิน VS ดาวเคราะห์แก๊ส/น้ำแข็ง';
+                subEl.innerText = 'แยกดาวเคราะห์ออกเป็น 2 กลุ่ม: ดาวเคราะห์หินชั้นใน และดาวเคราะห์แก๊สยักษ์ชั้นนอก';
+            }
+
+            // Shuffle pool of planets
+            shufflePlanetPool();
+            renderSlotsAndPool();
+        }
+
+        function shufflePlanetPool() {
+            // Filter unassigned planets
+            const assignedIds = Object.values(slotAssignments).map(p => p ? p.id : null);
+            let unassigned = PLANETS.filter(p => !assignedIds.includes(p.id));
+
+            // Fisher-Yates Shuffle
+            for (let i = unassigned.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [unassigned[i], unassigned[j]] = [unassigned[j], unassigned[i]];
+            }
+            currentPoolPlanets = unassigned;
+            renderSlotsAndPool();
+        }
+
+        function resetCurrentRound() {
+            audio.playPickup();
+            slotAssignments = {};
+            selectedTapPlanetId = null;
+            shufflePlanetPool();
+        }
+
+        function renderSlotsAndPool() {
+            const slotsContainer = document.getElementById('slotsGrid');
+            const poolContainer = document.getElementById('planetPoolGrid');
+
+            slotsContainer.innerHTML = '';
+            poolContainer.innerHTML = '';
+
+            // Render Target Slots based on Mission Type
+            if (currentMissionIndex === 1 || currentMissionIndex === 2) {
+                // 8 Sequential Slots
+                slotsContainer.className = 'grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3';
+
+                for (let i = 0; i < 8; i++) {
+                    const slotDiv = document.createElement('div');
+                    slotDiv.className = 'drop-slot glass-card rounded-2xl p-2 border-2 border-dashed border-gray-700 flex flex-col items-center justify-between relative';
+                    slotDiv.dataset.slotIndex = i;
+
+                    // Slot Header Label
+                    const labelText = currentMissionIndex === 1 ? `ลำดับที่ ${i+1}` : `ขนาดที่ ${i+1}`;
+                    const slotLabel = `<div class="text-[10px] font-bold text-gray-400 uppercase font-orbitron mb-1">${labelText}</div>`;
+
+                    const assignedPlanet = slotAssignments[i];
+
+                    if (assignedPlanet) {
+                        slotDiv.innerHTML = `
+                            ${slotLabel}
+                            <div class="w-12 h-12 my-auto">${assignedPlanet.svg}</div>
+                            <div class="text-[11px] font-bold text-cyan-300 truncate w-full text-center mt-1">${assignedPlanet.nameEn}</div>
+                            <button onclick="unassignSlot(${i}, event)" class="absolute -top-1 -right-1 w-5 h-5 bg-rose-500/80 hover:bg-rose-600 text-white rounded-full text-[10px] flex items-center justify-center shadow">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        `;
+                    } else {
+                        slotDiv.innerHTML = `
+                            ${slotLabel}
+                            <div class="my-auto text-gray-600 text-xl"><i class="fa-solid fa-plus"></i></div>
+                            <div class="text-[10px] text-gray-500 text-center">วางดาวเคราะห์</div>
+                        `;
+                    }
+
+                    // Event Listeners for Drag and Drop
+                    setupSlotEvents(slotDiv, i);
+                    slotsContainer.appendChild(slotDiv);
+                }
+
+            } else if (currentMissionIndex === 3) {
+                // 2 Grouping Bins (Rocky vs Gas)
+                slotsContainer.className = 'grid grid-cols-1 sm:grid-cols-2 gap-4';
+
+                // Bin 1: Rocky Planets
+                const rockyBin = createBinSlot(0, 'ดาวเคราะห์หิน (Rocky Planets)', 'mercury, venus, earth, mars', 'border-amber-500/40', 'fa-mountain');
+                // Bin 2: Gas/Ice Giants
+                const gasBin = createBinSlot(1, 'ดาวเคราะห์แก๊ส/น้ำแข็ง (Gas & Ice Giants)', 'jupiter, saturn, uranus, neptune', 'border-cyan-500/40', 'fa-wind');
+
+                slotsContainer.appendChild(rockyBin);
+                slotsContainer.appendChild(gasBin);
+            }
+
+            // Render Unassigned Planet Pool Grid
+            poolContainer.className = 'grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3';
+            currentPoolPlanets.forEach(planet => {
+                const card = document.createElement('div');
+                card.className = `planet-card glass-card rounded-2xl p-2.5 border border-gray-700 flex flex-col items-center justify-between text-center relative ${selectedTapPlanetId === planet.id ? 'selected-tap' : ''}`;
+                card.draggable = true;
+                card.dataset.planetId = planet.id;
+
+                card.innerHTML = `
+                    <div class="w-12 h-12 my-1 pointer-events-none">${planet.svg}</div>
+                    <div class="text-xs font-bold text-gray-200 truncate w-full pointer-events-none">${planet.nameEn}</div>
+                    <button onclick="showPlanetInfo('${planet.id}', event)" class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+                        <i class="fa-solid fa-circle-info"></i> ข้อมูล
+                    </button>
+                `;
+
+                // Setup Card Drag/Tap Events
+                setupPlanetCardEvents(card, planet);
+                poolContainer.appendChild(card);
+            });
+        }
+
+        function createBinSlot(binIndex, title, subtitle, borderColor, iconClass) {
+            const binDiv = document.createElement('div');
+            binDiv.className = `drop-slot glass-panel rounded-2xl p-3 border-2 ${borderColor} flex flex-col min-h-[150px]`;
+            binDiv.dataset.slotIndex = binIndex;
+
+            const assignedList = slotAssignments[binIndex] || [];
+
+            let itemsHTML = '';
+            assignedList.forEach((planet, idx) => {
+                itemsHTML += `
+                    <div class="relative bg-gray-900/80 p-2 rounded-xl border border-gray-700 flex items-center gap-2">
+                        <div class="w-8 h-8">${planet.svg}</div>
+                        <span class="text-xs font-bold text-cyan-300">${planet.nameEn}</span>
+                        <button onclick="unassignBinItem(${binIndex}, '${planet.id}', event)" class="ml-auto text-rose-400 hover:text-rose-300 text-xs p-1">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+            });
+
+            binDiv.innerHTML = `
+                <div class="flex items-center gap-2 pb-2 mb-2 border-b border-gray-800">
+                    <i class="fa-solid ${iconClass} text-amber-400"></i>
+                    <span class="text-xs font-bold text-amber-300">${title}</span>
+                    <span class="text-[10px] text-gray-400 ml-auto">${assignedList.length} ดวง</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 flex-1">
+                    ${itemsHTML || '<div class="col-span-2 text-center text-xs text-gray-500 my-auto">ลากดาวเคราะห์มาวางที่นี่</div>'}
+                </div>
+            `;
+
+            setupSlotEvents(binDiv, binIndex);
+            return binDiv;
+        }
+
+        /* Drag & Drop Event Listeners */
+        let draggedPlanetId = null;
+
+        function setupPlanetCardEvents(card, planet) {
+            card.addEventListener('dragstart', (e) => {
+                draggedPlanetId = planet.id;
+                card.classList.add('dragging');
+                audio.playPickup();
+                e.dataTransfer.setData('text/plain', planet.id);
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+            });
+
+            // Mobile/Click Tap-to-select support
+            card.addEventListener('click', () => {
+                if (selectedTapPlanetId === planet.id) {
+                    selectedTapPlanetId = null;
+                } else {
+                    selectedTapPlanetId = planet.id;
+                    audio.playPickup();
+                }
+                renderSlotsAndPool();
+            });
+        }
+
+        function setupSlotEvents(slotDiv, slotIndex) {
+            slotDiv.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                slotDiv.classList.add('drag-over');
+            });
+
+            slotDiv.addEventListener('dragleave', () => {
+                slotDiv.classList.remove('drag-over');
+            });
+
+            slotDiv.addEventListener('drop', (e) => {
+                e.preventDefault();
+                slotDiv.classList.remove('drag-over');
+                const planetId = e.dataTransfer.getData('text/plain') || draggedPlanetId;
+                if (planetId) {
+                    assignPlanetToSlot(planetId, slotIndex);
+                }
+            });
+
+            // Tap Slot to assign selected planet
+            slotDiv.addEventListener('click', (e) => {
+                if (selectedTapPlanetId) {
+                    assignPlanetToSlot(selectedTapPlanetId, slotIndex);
+                    selectedTapPlanetId = null;
+                }
+            });
+        }
+
+        function assignPlanetToSlot(planetId, slotIndex) {
+            const planet = PLANETS.find(p => p.id === planetId);
+            if (!planet) return;
+
+            audio.playDrop();
+
+            if (currentMissionIndex === 1 || currentMissionIndex === 2) {
+                // If planet was in another slot, unassign it
+                Object.keys(slotAssignments).forEach(key => {
+                    if (slotAssignments[key] && slotAssignments[key].id === planetId) {
+                        delete slotAssignments[key];
+                    }
+                });
+                slotAssignments[slotIndex] = planet;
+            } else if (currentMissionIndex === 3) {
+                if (!slotAssignments[slotIndex]) slotAssignments[slotIndex] = [];
+                // Prevent duplicate
+                if (!slotAssignments[slotIndex].some(p => p.id === planetId)) {
+                    slotAssignments[slotIndex].push(planet);
+                }
+            }
+
+            // Remove from pool
+            currentPoolPlanets = currentPoolPlanets.filter(p => p.id !== planetId);
+            renderSlotsAndPool();
+        }
+
+        function unassignSlot(slotIndex, e) {
+            e.stopPropagation();
+            const planet = slotAssignments[slotIndex];
+            if (planet) {
+                audio.playPickup();
+                delete slotAssignments[slotIndex];
+                currentPoolPlanets.push(planet);
+                renderSlotsAndPool();
+            }
+        }
+
+        function unassignBinItem(binIndex, planetId, e) {
+            e.stopPropagation();
+            if (slotAssignments[binIndex]) {
+                const planet = slotAssignments[binIndex].find(p => p.id === planetId);
+                if (planet) {
+                    audio.playPickup();
+                    slotAssignments[binIndex] = slotAssignments[binIndex].filter(p => p.id !== planetId);
+                    currentPoolPlanets.push(planet);
+                    renderSlotsAndPool();
+                }
+            }
+        }
+
+        /* ==========================================================================
+           4. ANSWER VERIFICATION & SCORING
+           ========================================================================== */
+        function checkRoundAnswer() {
+            if (!isGameActive) return;
+
+            let isCorrect = true;
+
+            if (currentMissionIndex === 1) {
+                // Check Distance Order
+                for (let i = 0; i < 8; i++) {
+                    const assigned = slotAssignments[i];
+                    if (!assigned || assigned.distanceOrder !== i + 1) {
+                        isCorrect = false;
+                        break;
+                    }
+                }
+            } else if (currentMissionIndex === 2) {
+                // Check Size Order (Smallest -> Largest)
+                for (let i = 0; i < 8; i++) {
+                    const assigned = slotAssignments[i];
+                    if (!assigned || assigned.sizeOrder !== i + 1) {
+                        isCorrect = false;
+                        break;
+                    }
+                }
+            } else if (currentMissionIndex === 3) {
+                // Check Type Classification
+                const rockyList = slotAssignments[0] || [];
+                const gasList = slotAssignments[1] || [];
+
+                if (rockyList.length !== 4 || gasList.length !== 4) {
+                    isCorrect = false;
+                } else {
+                    const allRockyValid = rockyList.every(p => p.type === 'rocky');
+                    const allGasValid = gasList.every(p => p.type === 'gas');
+                    if (!allRockyValid || !allGasValid) isCorrect = false;
+                }
+            }
+
+            if (isCorrect) {
+                // SUCCESS
+                audio.playCorrect();
+                const pointsEarned = 100 * combo;
+                score += pointsEarned;
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+
+                document.getElementById('lblScore').innerText = score;
+                document.getElementById('lblCombo').innerText = `x${combo}`;
+
+                spawnFloatingScore(`+${pointsEarned}`);
+
+                if (currentMissionIndex === 1) {
+                    // Show Orbit Canvas Animation Celebration
+                    setTimeout(() => {
+                        openSolarAnimationModal();
+                    }, 400);
+                } else if (currentMissionIndex < 3) {
+                    setTimeout(() => {
+                        currentMissionIndex++;
+                        setupMission(currentMissionIndex);
+                    }, 500);
+                } else {
+                    audio.playVictory();
+                    setTimeout(() => endGame(), 600);
+                }
+
+            } else {
+                // WRONG ANSWER
+                audio.playWrong();
+                combo = 1;
+                document.getElementById('lblCombo').innerText = 'x1';
+
+                const targetSection = document.getElementById('targetSlotsSection');
+                targetSection.classList.add('slot-wrong');
+                setTimeout(() => targetSection.classList.remove('slot-wrong'), 500);
+            }
+        }
+
+        function spawnFloatingScore(text) {
+            const container = document.getElementById('floatScoreContainer');
+            const floatEl = document.createElement('div');
+            floatEl.className = 'absolute font-black font-orbitron text-2xl text-amber-300 float-score-anim shadow-sm';
+            floatEl.innerText = text;
+            floatEl.style.left = '50%';
+            floatEl.style.top = '40%';
+            floatEl.style.transform = 'translate(-50%, -50%)';
+
+            container.appendChild(floatEl);
+            setTimeout(() => floatEl.remove(), 800);
+        }
+
+        /* ==========================================================================
+           5. SOLAR SYSTEM CANVAS ANIMATION & KNOWLEDGE MODAL
+           ========================================================================== */
+        let animationFrameId = null;
+
+        function openSolarAnimationModal() {
+            document.getElementById('modalSolarAnimation').classList.remove('hidden');
+            startSolarCanvas();
+        }
+
+        function closeSolarAnimationModal() {
+            document.getElementById('modalSolarAnimation').classList.add('hidden');
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        }
+
+        function nextMissionFromModal() {
+            closeSolarAnimationModal();
+            currentMissionIndex = 2;
+            setupMission(currentMissionIndex);
+        }
+
+        function startSolarCanvas() {
+            const canvas = document.getElementById('solarCanvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = Math.min(centerX, centerY) - 20;
+
+            let angle = 0;
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw Sun
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 18, 0, Math.PI * 2);
+                ctx.fillStyle = '#f59e0b';
+                ctx.shadowColor = '#fbbf24';
+                ctx.shadowBlur = 20;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Draw 8 Orbiting Planets
+                PLANETS.forEach((p, idx) => {
+                    const orbitRadius = 30 + (idx * (maxRadius - 30) / 8);
+                    const speed = 0.02 / (idx + 1);
+                    const planetAngle = angle * (8 - idx) * 0.3;
+
+                    const px = centerX + Math.cos(planetAngle) * orbitRadius;
+                    const py = centerY + Math.sin(planetAngle) * orbitRadius;
+
+                    // Orbit Line
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, orbitRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    // Planet Circle
+                    ctx.beginPath();
+                    ctx.arc(px, py, 4 + idx * 0.8, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.shadowColor = p.color;
+                    ctx.shadowBlur = 6;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
+
+                angle += 0.05;
+                animationFrameId = requestAnimationFrame(animate);
+            }
+
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animate();
+        }
+
+        /* Planet Info Encyclopedia Modal */
+        function showPlanetInfo(planetId, e) {
+            if (e) e.stopPropagation();
+            const planet = PLANETS.find(p => p.id === planetId);
+            if (!planet) return;
+
+            document.getElementById('modalPlanetIcon').innerHTML = `<div class="w-20 h-20">${planet.svg}</div>`;
+            document.getElementById('modalPlanetName').innerText = planet.name;
+            document.getElementById('modalPlanetType').innerText = planet.typeText;
+            document.getElementById('modalPlanetSize').innerText = planet.diameterKm;
+            document.getElementById('modalPlanetDist').innerText = `${planet.distanceAU} AU`;
+            document.getElementById('modalPlanetMoons').innerText = `${planet.moons} ดวง`;
+            document.getElementById('modalPlanetDesc').innerText = planet.desc;
+
+            document.getElementById('modalPlanetInfo').classList.remove('hidden');
+        }
+
+        function closePlanetInfoModal() {
+            document.getElementById('modalPlanetInfo').classList.add('hidden');
+        }
+
+        /* Game Over Modal */
+        function endGame() {
+            isGameActive = false;
+            clearInterval(gameTimerInterval);
+
+            document.getElementById('goTotalScore').innerText = score;
+            document.getElementById('goMaxCombo').innerText = `x${maxCombo}`;
+            document.getElementById('goTotalTime').innerText = `${totalTimeSeconds}s`;
+
+            document.getElementById('modalGameOver').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
